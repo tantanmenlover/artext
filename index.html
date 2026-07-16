@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (データ読み込み完全修復版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -150,11 +150,10 @@
                     </div>
                 </div>
                 
-                <div id="editBanner">長押しでドラッグ移動・交換が可能。</div>
+                <div id="editBanner">[編集] 長押しでドラッグ移動・交換が可能。</div>
 
                 <div class="keyboard-wrapper" id="keyboardWrapper">
                     <div id="keysContainer" style="width: 100%;"></div>
-                    <!-- バックスペースはシステム行から撤去し、各キーボード内に直接配置 -->
                     <div class="system-row">
                         <div id="sysBtn123" class="key-btn key-system sys-drop-target" style="min-width: 42px;" onclick="toggleNumbersPage()">123</div>
                         <div class="key-btn key-space" onclick="clickVirtualKey('空白', '空白')">空白</div>
@@ -213,9 +212,9 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V32 = 'artificial_text_dict_v32';
-    const STORAGE_KEY_LAYOUTS_V32 = 'artificial_text_layouts_v32';
-    const STORAGE_KEY_DOC_V32 = 'artificial_text_doc_v32';
+    const STORAGE_KEY_DICT_V33 = 'artificial_text_dict_v33';
+    const STORAGE_KEY_LAYOUTS_V33 = 'artificial_text_layouts_v33';
+    const STORAGE_KEY_DOC_V33 = 'artificial_text_doc_v33';
     const DPI = 2;
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -244,6 +243,7 @@
     function saveHistory() { undoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); if (undoStack.length > 50) undoStack.shift(); redoStack = []; updateUndoRedoUI(); }
     function undo() { if (undoStack.length > 0) { redoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); const state = undoStack.pop(); typedSequence = [...state.seq]; cursorIndex = state.cursor; clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI(); } }
     function redo() { if (redoStack.length > 0) { undoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); const state = redoStack.pop(); typedSequence = [...state.seq]; cursorIndex = state.cursor; clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI(); } }
+    
     function reAnalyzeSequence() {
         let rawStr = sequenceToString(typedSequence); let newSeq = []; let i = 0;
         while(i < rawStr.length) {
@@ -259,6 +259,7 @@
         }
         typedSequence = newSeq; cursorIndex = typedSequence.length; clearSelection(); saveDocumentData(); renderOutputToCache();
     }
+    
     function hasSelection() { return selectionAnchor !== null && selectionAnchor !== cursorIndex; }
     function clearSelection() { selectionAnchor = null; }
     function deleteSelection() {
@@ -266,130 +267,118 @@
         const start = Math.min(selectionAnchor, cursorIndex); const end = Math.max(selectionAnchor, cursorIndex);
         typedSequence.splice(start, end - start); cursorIndex = start; clearSelection();
     }
+    
     function sequenceToString(seq) { return seq.map(item => { if (item === '改行') return '\n'; if (item === '空白') return ' '; if (charDictionary[item]) return charDictionary[item].phoneme; if (typeof item === 'string' && item.startsWith('id-')) return ''; return item; }).join(''); }
     function showToast(msg) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => { toast.style.opacity = '0'; }, 2000); }
+    
     async function copyText() { let text = hasSelection() ? sequenceToString(typedSequence.slice(Math.min(selectionAnchor, cursorIndex), Math.max(selectionAnchor, cursorIndex))) : sequenceToString(typedSequence); if (!text) { showToast("コピーする文字なし"); return; } await navigator.clipboard.writeText(text); showToast("コピー"); }
     async function cutText() { if (!hasSelection()) { selectionAnchor = 0; cursorIndex = typedSequence.length; } if (typedSequence.length === 0) return; await copyText(); saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); }
     async function pasteText() {
         try { const text = await navigator.clipboard.readText(); if (!text) return; saveHistory(); if (hasSelection()) deleteSelection(); for (let i = 0; i < text.length; i++) processInput(text[i]); saveDocumentData(); renderOutputToCache(); showToast("ペースト"); } catch (err) { alert("失敗"); }
     }
+    
     function selectAllText() { selectionAnchor = 0; cursorIndex = typedSequence.length; renderOutputToCache(); showToast("全選択"); }
     function clearOutputWithHistory() { saveHistory(); typedSequence = []; cursorIndex = 0; clearSelection(); saveDocumentData(); renderOutputToCache(); }
-    function saveDocumentData() { const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode }; localStorage.setItem(STORAGE_KEY_DOC_V32, JSON.stringify(docData)); }
-    function exportData() { const dictData = localStorage.getItem(STORAGE_KEY_DICT_V32); const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V32); const docData = localStorage.getItem(STORAGE_KEY_DOC_V32); if (!dictData) return; let fileName = prompt("保存ファイル名", "data") || "data"; const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} }; const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName + '.json'; link.click(); URL.revokeObjectURL(url); }
-    function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); localStorage.setItem(STORAGE_KEY_DICT_V32, JSON.stringify(d.dict)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V32, JSON.stringify(d.layouts)); if(d.doc) localStorage.setItem(STORAGE_KEY_DOC_V32, JSON.stringify(d.doc)); location.reload(); } catch(e) { alert("エラー"); } }; reader.readAsText(file); }
-    function clearAllData() { if (confirm("全消去しますか？")) { localStorage.removeItem(STORAGE_KEY_DICT_V32); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V32); localStorage.removeItem(STORAGE_KEY_DOC_V32); location.reload(); } }
-    function generateId() { return 'id-' + Date.now(); }
+    function saveDocumentData() { const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode }; localStorage.setItem(STORAGE_KEY_DOC_V33, JSON.stringify(docData)); }
+    
+    function exportData() { const dictData = localStorage.getItem(STORAGE_KEY_DICT_V33); const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V33); const docData = localStorage.getItem(STORAGE_KEY_DOC_V33); if (!dictData) return; let fileName = prompt("保存ファイル名", "data") || "data"; const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} }; const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName + '.json'; link.click(); URL.revokeObjectURL(url); }
+    function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); localStorage.setItem(STORAGE_KEY_DICT_V33, JSON.stringify(d.dict)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V33, JSON.stringify(d.layouts)); if(d.doc) localStorage.setItem(STORAGE_KEY_DOC_V33, JSON.stringify(d.doc)); location.reload(); } catch(e) { alert("エラー"); } }; reader.readAsText(file); }
+    function clearAllData() { if (confirm("全消去しますか？")) { localStorage.removeItem(STORAGE_KEY_DICT_V33); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V33); localStorage.removeItem(STORAGE_KEY_DOC_V33); location.reload(); } }
+    
+    function generateId() { return 'id-' + Date.now() + Math.floor(Math.random()*1000); }
+    
     function cleanGhostIds() {
         ['custom1', 'custom2'].forEach(cPage => {
             if (Array.isArray(layouts[cPage])) { let newRows = []; layouts[cPage].forEach(row => { let v = row.filter(x => charDictionary[x] || !x.startsWith('id-')); while(v.length > 10) newRows.push(v.splice(0, 10)); if(v.length) newRows.push(v); }); layouts[cPage] = newRows; }
         });
     }
-    function repairCollapsedRows() { ['lower', 'upper', 'numbers', 'symbols'].forEach(p => { for(let r=0; r<3; r++) { const def = DEFAULT_LAYOUTS[p][r]; def.forEach((l, i) => { if (!layouts[p][r].includes(l)) layouts[p][r].splice(i, 0, l); }); } }); }
-    function getCharacterBoundsFromCtx(ctx, w, h) { const d = ctx.getImageData(0,0,w,h); let minX=w, maxX=0, minY=h, maxY=0, found=false; for(let y=0; y<h; y++) for(let x=0; x<w; x++) if(d.data[(y*w+x)*4+3]>0){ if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; found=true; } return found ? {minX, maxX, minY, maxY} : {minX:0, maxX:w-1, minY:0, maxY:h-1}; }
-    function finalizeLoad() { cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); renderOutputToCache(); startCursorBlink(); updateUndoRedoUI(); }
-    window.onload = () => {
-        charDictionary = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || {};
-        layouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || { custom1: [[]], custom2: [[]], ...DEFAULT_LAYOUTS };
-        const d = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V31));
-        if (d) { typedSequence = d.sequence || []; cursorIndex = typedSequence.length; textRenderSize = d.textSize || 50; textDirection = d.direction || 'ltr'; isReadingMode = !!d.readingMode; }
-        finalizeLoad(); window.addEventListener('resize', adjustKeyboardScale); setupPointerSelection();
-    };
-    function processInput(inputStr) {
-        if (inputStr === 'Backspace') { if (hasSelection()) { saveHistory(); deleteSelection(); renderOutputToCache(); } else { backspace(); } return; }
-        saveHistory(); if (hasSelection()) deleteSelection();
-        if (inputStr === '改行' || inputStr === 'Enter') { typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
-        if (inputStr === '空白' || inputStr === ' ') { typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
-        typedSequence.splice(cursorIndex, 0, inputStr); cursorIndex++;
-        let matchId = null, matchLen = 0;
-        for (let i = 1; i <= Math.min(cursorIndex, 15); i++) {
-            let combined = "";
-            for (let j = cursorIndex - i; j < cursorIndex; j++) { const it = typedSequence[j]; combined += charDictionary[it] ? charDictionary[it].phoneme : it; }
-            for (const id in charDictionary) if (charDictionary[id].phoneme === combined) { matchId = id; matchLen = i; }
-        }
-        if (matchId) { typedSequence.splice(cursorIndex - matchLen, matchLen, matchId); cursorIndex -= (matchLen - 1); }
-        saveDocumentData(); renderOutputToCache();
+    
+    // ★修復処理を再構築：余計なキー追加による増殖を防ぐ
+    function repairCollapsedRows() { 
+        ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { 
+            for(let r=0; r<3; r++) { 
+                const def = DEFAULT_LAYOUTS[page][r]; 
+                const row = layouts[page][r] || [];
+                const newRow = [];
+                
+                def.forEach(letter => {
+                    let idx = row.indexOf(letter);
+                    if (idx !== -1) {
+                        newRow.push(letter); row.splice(idx, 1);
+                    } else {
+                        // 既にIDが置き換わっているか探す（大文字小文字を無視して安全に検索）
+                        let idIdx = row.findIndex(val => typeof val === 'string' && val.startsWith('id-') && charDictionary[val] && charDictionary[val].phoneme.toLowerCase() === letter.toLowerCase());
+                        if (idIdx !== -1) {
+                            newRow.push(row[idIdx]); row.splice(idIdx, 1);
+                        } else {
+                            newRow.push(letter);
+                        }
+                    }
+                });
+                // 残ったID（ドラッグで移動されたもの等）はそのまま活かす
+                row.forEach(leftover => { if (typeof leftover === 'string' && leftover.startsWith('id-')) newRow.push(leftover); });
+                layouts[page][r] = newRow;
+            } 
+        }); 
     }
     
-    function renderKeyboard() {
-        const container = document.getElementById('keysContainer'); container.innerHTML = '';
-        const sysBtn123 = document.getElementById('sysBtn123');
-        if (mainTab === 'custom') {
-            sysBtn123.textContent = customPageNum === 1 ? 'ページ 2' : 'ページ 1'; sysBtn123.onclick = () => { customPageNum = customPageNum === 1 ? 2 : 1; renderKeyboard(); };
-            setupSystemDropTarget(sysBtn123, customPageNum === 1 ? 'custom2' : 'custom1');
-        } else {
-            sysBtn123.textContent = (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'ABC' : '123'; sysBtn123.onclick = toggleNumbersPage;
-            setupSystemDropTarget(sysBtn123, (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'lower' : 'numbers');
+    function getCharacterBoundsFromCtx(ctx, w, h) { const d = ctx.getImageData(0,0,w,h); let minX=w, maxX=0, minY=h, maxY=0, found=false; for(let y=0; y<h; y++) for(let x=0; x<w; x++) if(d.data[(y*w+x)*4+3]>0){ if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; found=true; } return found ? {minX, maxX, minY, maxY} : {minX:0, maxX:w-1, minY:0, maxY:h-1}; }
+    function finalizeLoad() { cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); renderOutputToCache(); startCursorBlink(); updateUndoRedoUI(); }
+    
+    window.onload = () => {
+        charDictionary = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V33)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V32)) || JSON.parse(localStorage.getItem('artificial_text_dict_v31')) || {};
+        layouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V33)) || JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V32)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v31')) || { custom1: [[]], custom2: [[]], ...DEFAULT_LAYOUTS };
+        const d = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V33)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V32)) || JSON.parse(localStorage.getItem('artificial_text_doc_v31'));
+        if (d) { typedSequence = d.sequence || []; cursorIndex = typedSequence.length; textRenderSize = d.textSize || 50; textDirection = d.direction || 'ltr'; isReadingMode = !!d.readingMode; }
+        
+        const totalKeys = Object.keys(charDictionary).length;
+        if (totalKeys === 0) { finalizeLoad(); } 
+        else {
+            let loadedCount = 0;
+            for (const id in charDictionary) {
+                const data = charDictionary[id]; const img = new Image();
+                img.onload = () => {
+                    let charInfo = { ...data, img: img };
+                    
+                    // ★安全なマイグレーション（NaNやグレーバー化を完全防止）
+                    if (isNaN(charInfo.actualHeight) || isNaN(charInfo.minX) || !charInfo.actualWidth) {
+                        const tC = document.createElement('canvas'); tC.width = img.width; tC.height = img.height;
+                        const tCtx = tC.getContext('2d'); tCtx.drawImage(img, 0, 0);
+                        const b = getCharacterBoundsFromCtx(tCtx, img.width, img.height);
+                        charInfo.minX = b.minX; charInfo.minY = b.minY;
+                        charInfo.leftPad = 4; charInfo.rightPad = 4; charInfo.topPad = 4; charInfo.bottomPad = 4;
+                        charInfo.actualWidth = (b.maxX - b.minX + 1) + 8; charInfo.actualHeight = (b.maxY - b.minY + 1) + 8;
+                    }
+
+                    if (img.width === 100 && !charInfo.migratedToV23) {
+                        const tempCanvas = document.createElement('canvas'); tempCanvas.width = 200; tempCanvas.height = 200;
+                        const tempCtx = tempCanvas.getContext('2d'); tempCtx.imageSmoothingEnabled = false; tempCtx.drawImage(img, 0, 0, 200, 200);
+                        charInfo.url = tempCanvas.toDataURL("image/png"); const newImg = new Image();
+                        newImg.onload = () => {
+                            charInfo.img = newImg; charInfo.actualWidth *= 2; charInfo.actualHeight *= 2;
+                            charInfo.leftPad *= 2; charInfo.rightPad *= 2; charInfo.topPad *= 2; charInfo.bottomPad *= 2; charInfo.minX *= 2; charInfo.minY *= 2;
+                            charInfo.migratedToV23 = true; charDictionary[id] = charInfo; loadedCount++;
+                            if (loadedCount === totalKeys) finalizeLoad();
+                        };
+                        newImg.src = charInfo.url; return; 
+                    }
+                    charInfo.migratedToV23 = true; charDictionary[id] = charInfo; loadedCount++;
+                    if (loadedCount === totalKeys) finalizeLoad();
+                };
+                // Fallback for broken URLs
+                img.onerror = () => { loadedCount++; if(loadedCount === totalKeys) finalizeLoad(); };
+                img.src = data.url;
+            }
         }
+        window.addEventListener('resize', adjustKeyboardScale); setupPointerSelection();
+    };
 
-        if (mainTab === 'custom') {
-            const cPage = 'custom' + customPageNum;
-            if (isEditMode) { if (layouts[cPage].length === 0 || layouts[cPage][layouts[cPage].length - 1].length > 0) layouts[cPage].push([]); } 
-            else { while (layouts[cPage].length > 0 && layouts[cPage][layouts[cPage].length - 1].length === 0) layouts[cPage].pop(); }
-
-            layouts[cPage].forEach((rowArray, rowIndex) => {
-                const rowDiv = document.createElement('div'); rowDiv.className = 'keyboard-container';
-                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(cPage, rowIndex, 0));
-                rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, cPage, rowIndex, index)); if (isEditMode) rowDiv.appendChild(createDropSlot(cPage, rowIndex, index + 1)); });
-                
-                // ★カスタムレイアウトの各ページの最後の行にBackSpaceを追加
-                if (rowIndex === layouts[cPage].length - 1) {
-                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; 
-                    bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('⌫'); }; rowDiv.appendChild(bsBtn);
-                }
-
-                if (rowIndex === layouts[cPage].length - 1 && rowArray.length === 0 && isEditMode) {
-                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (新しい列)';
-                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
-                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); };
-                    rowDiv.appendChild(dropArea);
-                }
-                if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
-            });
-        } else if (mainTab === 'qwerty') {
-            const activeLayout = layouts[qwertyPage];
-            activeLayout.forEach((rowArray, rowIndex) => {
-                const rowDiv = document.createElement('div'); rowDiv.className = rowIndex === 3 ? 'keyboard-container' : 'keyboard-row';
-                if (rowIndex === 1 && (qwertyPage === 'lower' || qwertyPage === 'upper')) rowDiv.style.paddingLeft = '13px';
-                if (rowIndex === 2) rowDiv.style.paddingLeft = '19px';
-                
-                if (rowIndex === 2) {
-                    const shiftBtn = document.createElement('div'); shiftBtn.className = 'key-btn key-system sys-drop-target';
-                    if (qwertyPage === 'numbers') { shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols'); } 
-                    else if (qwertyPage === 'symbols') { shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers'); } 
-                    else { shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower'); }
-                    rowDiv.appendChild(shiftBtn);
-                }
-
-                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
-                rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, qwertyPage, rowIndex, index)); if (isEditMode && index === rowArray.length - 1) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1)); });
-                
-                // ★QWERTYレイアウトの3段目の右端にBackSpaceを追加 (iOS風)
-                if (rowIndex === 2) {
-                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; 
-                    bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('⌫'); }; rowDiv.appendChild(bsBtn);
-                }
-
-                if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
-                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (4列目)';
-                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
-                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); };
-                    rowDiv.appendChild(dropArea);
-                }
-
-                if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
-            });
-        }
-        adjustKeyboardScale();
-    }
-
-    // 残りの関数群
     function saveDataToStorage() {
         const dictToSave = {};
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, phoneme: charDictionary[id].phoneme, migratedToV23: true, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, minX: charDictionary[id].minX, actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V32, JSON.stringify(dictToSave)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V32, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V33, JSON.stringify(dictToSave)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V33, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas'); const dCtx = drawCanvas.getContext('2d'); let isDrawing = false;
@@ -417,21 +406,16 @@
         
         let existingId = null;
         for (const id in charDictionary) { if (charDictionary[id].phoneme === phoneme) { existingId = id; break; } }
-
         let targetId = currentEditingId; let isNew = false;
-        if (existingId && existingId !== currentEditingId) {
-            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) return; 
-            targetId = existingId; 
-        } else if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
+        if (existingId && existingId !== currentEditingId) { if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) return; targetId = existingId; } 
+        else if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
 
         const autoTrim = document.getElementById('autoTrimCheckbox').checked;
         let bounds = autoTrim ? getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height) : { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
         
         const padSize = 2 * DPI; const leftPad = (bounds.minX === 0) ? 0 : padSize; const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : padSize;
-        const actualWidth = bounds.maxX - bounds.minX + 1;
-        const topPad = (bounds.minY === 0) ? 0 : padSize; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : padSize;
-        const actualHeight = bounds.maxY - bounds.minY + 1;
-        const dataUrl = drawCanvas.toDataURL("image/png");
+        const actualWidth = bounds.maxX - bounds.minX + 1; const topPad = (bounds.minY === 0) ? 0 : padSize; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : padSize;
+        const actualHeight = bounds.maxY - bounds.minY + 1; const dataUrl = drawCanvas.toDataURL("image/png");
 
         const img = new Image();
         img.onload = () => {
@@ -441,8 +425,11 @@
                 if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
                 let targetRow = layouts[cPage][layouts[cPage].length - 1];
                 if (targetRow.length >= 10) layouts[cPage].push([targetId]); else targetRow.push(targetId);
+                
                 let foundInQwerty = false;
-                ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for (let r = 0; r < 3; r++) { const idx = layouts[page][r].indexOf(phoneme); if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; } } });
+                ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
+                    for (let r = 0; r < 3; r++) { const idx = layouts[page][r].indexOf(phoneme); if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; } }
+                });
                 if (!foundInQwerty) { if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId); }
             }
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); reAnalyzeSequence(); renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
@@ -465,7 +452,74 @@
     function handleSwapDrop(targetLayout, targetRow, targetIndex) { if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const targetArray = getLayoutArray(targetLayout, targetRow); const sourceItem = sourceArray[dragSource.index]; const targetItem = targetArray[targetIndex]; const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val]; if (isBaseUnregistered(targetItem)) { sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem; } else { const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp; } cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); }
     function handleSystemDrop(targetPage) { if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0]; if (targetPage.startsWith('custom')) { if (layouts[targetPage].length === 0) layouts[targetPage].push([]); layouts[targetPage][layouts[targetPage].length - 1].push(item); customPageNum = targetPage === 'custom1' ? 1 : 2; } else { layouts[targetPage][3].push(item); qwertyPage = targetPage; } cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); }
     function setupSystemDropTarget(element, targetPage) { if (!isEditMode) return; element.ondragover = (e) => { e.preventDefault(); element.classList.add('drag-over'); }; element.ondragleave = () => { element.classList.remove('drag-over'); }; element.ondrop = (e) => { e.preventDefault(); element.classList.remove('drag-over'); handleSystemDrop(targetPage); }; }
+
+    function renderKeyboard() {
+        const container = document.getElementById('keysContainer'); container.innerHTML = '';
+        const sysBtn123 = document.getElementById('sysBtn123');
+        if (mainTab === 'custom') {
+            sysBtn123.textContent = customPageNum === 1 ? 'ページ 2' : 'ページ 1'; sysBtn123.onclick = () => { customPageNum = customPageNum === 1 ? 2 : 1; renderKeyboard(); };
+            setupSystemDropTarget(sysBtn123, customPageNum === 1 ? 'custom2' : 'custom1');
+        } else {
+            sysBtn123.textContent = (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'ABC' : '123'; sysBtn123.onclick = toggleNumbersPage;
+            setupSystemDropTarget(sysBtn123, (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'lower' : 'numbers');
+        }
+
+        if (mainTab === 'custom') {
+            const cPage = 'custom' + customPageNum;
+            if (isEditMode) { if (layouts[cPage].length === 0 || layouts[cPage][layouts[cPage].length - 1].length > 0) layouts[cPage].push([]); } 
+            else { while (layouts[cPage].length > 0 && layouts[cPage][layouts[cPage].length - 1].length === 0) layouts[cPage].pop(); }
+
+            layouts[cPage].forEach((rowArray, rowIndex) => {
+                const rowDiv = document.createElement('div'); rowDiv.className = 'keyboard-container';
+                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(cPage, rowIndex, 0));
+                rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, cPage, rowIndex, index)); if (isEditMode) rowDiv.appendChild(createDropSlot(cPage, rowIndex, index + 1)); });
+                
+                if (rowIndex === layouts[cPage].length - 1) {
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = 'DEL'; bsBtn.style.fontSize = '14px'; bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('DEL'); }; rowDiv.appendChild(bsBtn);
+                }
+
+                if (rowIndex === layouts[cPage].length - 1 && rowArray.length === 0 && isEditMode) {
+                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (新しい列)';
+                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
+                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); }; rowDiv.appendChild(dropArea);
+                }
+                if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
+            });
+        } else if (mainTab === 'qwerty') {
+            const activeLayout = layouts[qwertyPage];
+            activeLayout.forEach((rowArray, rowIndex) => {
+                const rowDiv = document.createElement('div'); rowDiv.className = rowIndex === 3 ? 'keyboard-container' : 'keyboard-row';
+                if (rowIndex === 1 && (qwertyPage === 'lower' || qwertyPage === 'upper')) rowDiv.style.paddingLeft = '13px';
+                if (rowIndex === 2) rowDiv.style.paddingLeft = '19px';
+                
+                if (rowIndex === 2) {
+                    const shiftBtn = document.createElement('div'); shiftBtn.className = 'key-btn key-system sys-drop-target';
+                    if (qwertyPage === 'numbers') { shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols'); } 
+                    else if (qwertyPage === 'symbols') { shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers'); } 
+                    else { shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower'); }
+                    rowDiv.appendChild(shiftBtn);
+                }
+
+                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
+                rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, qwertyPage, rowIndex, index)); if (isEditMode && index === rowArray.length - 1) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1)); });
+                
+                if (rowIndex === 2) {
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = 'DEL'; bsBtn.style.fontSize = '14px'; bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('DEL'); }; rowDiv.appendChild(bsBtn);
+                }
+
+                if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
+                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (4列目)';
+                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
+                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); }; rowDiv.appendChild(dropArea);
+                }
+                if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
+            });
+        }
+        adjustKeyboardScale();
+    }
+
     function clickVirtualKey(inputVal, displayLabel) { processInput(inputVal); triggerKeyAnimation(displayLabel); }
+
     function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
         const isRegistered = !!charDictionary[itemValue]; const charData = isRegistered ? charDictionary[itemValue] : null; const displayLabel = isRegistered ? charData.phoneme : itemValue;
         const btn = document.createElement('div'); btn.className = 'key-btn'; if (!isRegistered) btn.classList.add('key-empty');
@@ -477,19 +531,10 @@
         if (isEditMode && isRegistered) { const delBadge = document.createElement('div'); delBadge.className = 'action-badge delete-badge'; delBadge.textContent = '×'; delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); }; btn.appendChild(delBadge); const dupBadge = document.createElement('div'); dupBadge.className = 'action-badge duplicate-badge'; dupBadge.textContent = '+'; dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); }; btn.appendChild(dupBadge); }
         return btn;
     }
-    function deleteCharacter(id) {
-        const phonemeStr = charDictionary[id].phoneme;
-        if(confirm(`「${phonemeStr}」を削除しますか？`)) {
-            ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
-            ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
-            typedSequence = typedSequence.map(item => item === id ? phonemeStr : item);
-            undoStack = undoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) })); redoStack = redoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
-            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData(); renderKeyboard(); renderOutputToCache();
-        }
-    }
-    function duplicateCharacter(id, layoutName, rowIndex, keyIndex) { const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] }; layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId); if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); } saveDataToStorage(); renderKeyboard(); }
+
     function createNewPage() { const canvas = document.createElement('canvas'); canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT; const ctx = canvas.getContext('2d'); ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT); pagesData.push(canvas); return ctx; }
     function drawHighlight(ctx, x, y, w, h) { ctx.fillStyle = "rgba(0, 122, 255, 0.3)"; ctx.fillRect(x, y, w, h); }
+
     function renderOutputToCache() {
         pagesData = []; window.cachedCursorPositions = []; let currentCtx = createNewPage(); let currentPageIndex = 0;
         const renderHeight = textRenderSize * DPI; const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; const scale = renderHeight / 200; cursorHeight = renderHeight;
@@ -526,7 +571,8 @@
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x, y, renderWidthActual, renderHeight);
                     if (isReadingMode) { currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center"; currentCtx.fillText(charData.phoneme, x + renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI); }
                     x += renderWidthActual; 
-                } else if (textDirection === 'rtl') {
+                } 
+                else if (textDirection === 'rtl') {
                     const renderWidthActual = charData.actualWidth * scale;
                     if (x - renderWidthActual < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x - renderWidthActual, y, renderWidthActual, renderHeight);
@@ -534,7 +580,8 @@
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x - renderWidthActual, y, renderWidthActual, renderHeight);
                     if (isReadingMode) { currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center"; currentCtx.fillText(charData.phoneme, x - renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI); }
                     x -= renderWidthActual;
-                } else { 
+                }
+                else { 
                     const renderHeightActual = charData.actualHeight * scale;
                     if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeightActual, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeightActual);
@@ -550,10 +597,12 @@
                 if (textDirection === 'ltr') {
                     if (x + unregWidth > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x, y, unregWidth, renderHeight); currentCtx.fillText(item, x + unregWidth / 2, y + renderHeight / 2); x += unregWidth; 
-                } else if (textDirection === 'rtl') {
+                } 
+                else if (textDirection === 'rtl') {
                     if (x - unregWidth < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x - unregWidth, y, unregWidth, renderHeight); currentCtx.fillText(item, x - unregWidth / 2, y + renderHeight / 2); x -= unregWidth;
-                } else { 
+                }
+                else { 
                     if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight); currentCtx.fillText(item, x + renderHeight / 2, y + renderHeight / 2); y += renderHeight;
                 }
@@ -565,6 +614,7 @@
         if (currentPos) { cursorX = currentPos.x; cursorY = currentPos.y; cursorPage = currentPos.page; cursorHeight = currentPos.height; }
         updateOutputDOM(); resetCursorBlink();
     }
+
     function updateOutputDOM() {
         const container = document.getElementById('documentContainer');
         while(container.children.length < pagesData.length) { const c = document.createElement('canvas'); c.className = 'output-page'; c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c); }
@@ -579,6 +629,7 @@
             }
         }
     }
+
     function getIndexFromEvent(e) {
         const canvas = e.target.closest('.output-page'); if (!canvas || window.cachedCursorPositions.length === 0) return null;
         const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
@@ -601,6 +652,7 @@
             return closestIndex;
         }
     }
+
     let isTextSelecting = false;
     function setupPointerSelection() {
         const docContainer = document.getElementById('documentContainer');
@@ -614,8 +666,10 @@
         window.addEventListener('pointermove', (e) => { if (!isTextSelecting) return; const idx = getIndexFromEvent(e); if (idx !== null && idx !== cursorIndex) { cursorIndex = idx; renderOutputToCache(); } });
         window.addEventListener('pointerup', () => { if (isTextSelecting) { isTextSelecting = false; if (selectionAnchor === cursorIndex) selectionAnchor = null; renderOutputToCache(); } });
     }
+
     function startCursorBlink() { if (cursorBlinkTimer) clearInterval(cursorBlinkTimer); isCursorVisible = true; updateOutputDOM(); cursorBlinkTimer = setInterval(() => { isCursorVisible = !isCursorVisible; updateOutputDOM(); }, 530); }
     function resetCursorBlink() { isCursorVisible = true; updateOutputDOM(); if (cursorBlinkTimer) clearInterval(cursorBlinkTimer); if (typingTimeout) clearTimeout(typingTimeout); typingTimeout = setTimeout(() => { startCursorBlink(); }, 500); }
+
     function showSaveModal(mode) {
         if (pagesData.length === 0) return;
         const container = document.getElementById('downloadLinksContainer'); container.innerHTML = '';
@@ -634,6 +688,7 @@
         document.getElementById('downloadModal').style.display = 'flex';
     }
     function closeDownloadModal() { document.getElementById('downloadModal').style.display = 'none'; }
+
     function handleArrowNavigation(key, shiftKey) {
         if (window.cachedCursorPositions.length === 0) return;
         if (shiftKey && selectionAnchor === null) selectionAnchor = cursorIndex; else if (!shiftKey && selectionAnchor !== null) clearSelection(); 
@@ -660,15 +715,38 @@
         else if (textDirection === 'rtl') { if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x'); else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1); } 
         else if (textDirection === 'ttb') { if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y'); else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y'); else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); }
     }
-    function backspace() { saveHistory(); if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } }
+
+    function processInput(inputStr) {
+        saveHistory(); let deletedSelection = false;
+        if (hasSelection()) { deleteSelection(); deletedSelection = true; }
+        if (inputStr === 'Backspace') { if (!deletedSelection && cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; } saveDocumentData(); renderOutputToCache(); return; }
+        if (inputStr === '改行' || inputStr === 'Enter') { typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
+        if (inputStr === '空白' || inputStr === ' ') { typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
+        typedSequence.splice(cursorIndex, 0, inputStr); cursorIndex++;
+        let bestMatchId = null; let bestMatchLength = 0; const limit = Math.min(cursorIndex, 15);
+        for (let i = 1; i <= limit; i++) {
+            let valid = true; let combinedPhoneme = "";
+            for (let j = cursorIndex - i; j < cursorIndex; j++) {
+                const item = typedSequence[j];
+                if (item === '改行' || item === '空白') { valid = false; break; }
+                if (charDictionary[item]) combinedPhoneme += charDictionary[item].phoneme; else combinedPhoneme += item; 
+            }
+            if (!valid) break; 
+            for (const id in charDictionary) { if (charDictionary[id].phoneme === combinedPhoneme) { bestMatchId = id; bestMatchLength = i; } }
+        }
+        if (bestMatchId) { typedSequence.splice(cursorIndex - bestMatchLength, bestMatchLength, bestMatchId); cursorIndex -= (bestMatchLength - 1); }
+        saveDocumentData(); renderOutputToCache();
+    }
+
     function triggerKeyAnimation(keyStr) {
         let targets = [];
-        if (keyStr === 'Backspace' || keyStr === '⌫') { document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); }); } 
+        if (keyStr === 'Backspace' || keyStr === 'DEL' || keyStr === '⌫') { document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === 'DEL' || btn.textContent === '⌫') targets.push(btn); }); } 
         else if (keyStr === 'Enter' || keyStr === '改行') { targets = document.querySelectorAll('.key-return'); } 
         else if (keyStr === ' ' || keyStr === '空白') { targets = document.querySelectorAll('.key-space'); } 
         else { document.querySelectorAll('.key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); if (targets.length === 0) { document.querySelectorAll('.key-empty .key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); } }
         targets.forEach(btn => { btn.classList.add('active-anim'); setTimeout(() => { btn.classList.remove('active-anim'); }, 100); });
     }
+
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
         if (e.ctrlKey || e.metaKey) {
@@ -677,7 +755,7 @@
         }
         if (e.altKey) return;
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); handleArrowNavigation(e.key, e.shiftKey); renderOutputToCache(); return; }
-        if (e.key === 'Backspace') { e.preventDefault(); if (hasSelection()) { saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); } else { backspace(); } triggerKeyAnimation('⌫'); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); processInput('Backspace'); triggerKeyAnimation('DEL'); return; }
         if (e.key === 'Enter') { e.preventDefault(); processInput('改行'); triggerKeyAnimation('改行'); return; }
         if (e.key === ' ') { e.preventDefault(); processInput('空白'); triggerKeyAnimation('空白'); return; }
         if (e.key.length === 1) { e.preventDefault(); processInput(e.key); triggerKeyAnimation(e.key); }
