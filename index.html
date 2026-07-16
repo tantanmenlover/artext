@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (重複上書き確認対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -92,7 +92,7 @@
     <div id="toast">操作しました</div>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
-        <h3>0. データの共有（エクスポート/インポート）</h3>
+        <h3>0. データの共有（エクスポート / インポート）</h3>
         <p style="font-size: 0.85em; color: #555;">辞書データと<strong style="color: #007aff;">今書いている文章データ</strong>が一緒に保存・復元されます。</p>
         <div class="controls">
             <button onclick="exportData()">作成データをダウンロード</button>
@@ -106,7 +106,7 @@
     </div>
 
     <div class="section">
-        <h3>1. 文字をつくる/編集する</h3>
+        <h3>1. 文字をつくる / 編集する</h3>
         <canvas id="drawCanvas" width="200" height="200"></canvas>
         <div class="line-width-selector">
             <span>線の太さ:</span>
@@ -132,7 +132,7 @@
 
     <div class="section">
         <h3>2. キーボード</h3>
-        <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">※PCやiPadのキーボードからも直接タイピングできます。</p>
+        <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。</p>
         <div class="tabs" style="justify-content: space-between; align-items: center;">
             <div style="display: flex; gap: 10px;">
                 <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
@@ -159,8 +159,8 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         <div class="toolbar">
-            <button onclick="undo()" id="btnUndo" disabled>Undo</button>
-            <button onclick="redo()" id="btnRedo" disabled>Redo</button>
+            <button onclick="undo()" id="btnUndo" disabled>↩️ 取消</button>
+            <button onclick="redo()" id="btnRedo" disabled>↪️ やり直し</button>
             <button onclick="selectAllText()">全選択</button>
             <button onclick="copyText()">コピー</button>
             <button onclick="cutText()">カット</button>
@@ -238,7 +238,6 @@
         symbols: [['[',']','{','}','#','%','^','*','+','='],['_','\\','|','~','<','>','$','£','¥','•'],['.',',','?','!','\''], []]
     };
 
-    // --- 履歴管理 ---
     function updateUndoRedoUI() {
         document.getElementById('btnUndo').disabled = undoStack.length === 0;
         document.getElementById('btnRedo').disabled = redoStack.length === 0;
@@ -269,7 +268,6 @@
         }
     }
 
-    // --- 文字の再解析 ---
     function reAnalyzeSequence() {
         let rawStr = sequenceToString(typedSequence);
         let newSeq = [];
@@ -293,7 +291,6 @@
         clearSelection(); saveDocumentData(); renderOutputToCache();
     }
 
-    // --- 選択・コピペ系 ---
     function hasSelection() { return selectionAnchor !== null && selectionAnchor !== cursorIndex; }
     function clearSelection() { selectionAnchor = null; }
     function deleteSelection() {
@@ -309,7 +306,7 @@
             if (item === '改行') return '\n'; 
             if (item === '空白') return ' ';
             if (charDictionary[item]) return charDictionary[item].phoneme;
-            if (typeof item === 'string' && item.startsWith('id-')) return ''; // バグで残った無効IDは無視
+            if (typeof item === 'string' && item.startsWith('id-')) return ''; 
             return item;
         }).join('');
     }
@@ -578,6 +575,30 @@
     function saveCharacter() {
         const phoneme = document.getElementById('phonemeInput').value.trim();
         if (!phoneme) { alert("音素を入力してください！"); return; }
+
+        // ★追加: 既存の音素かどうかチェック
+        let existingId = null;
+        for (const id in charDictionary) {
+            if (charDictionary[id].phoneme === phoneme) {
+                existingId = id;
+                break;
+            }
+        }
+
+        let targetId = currentEditingId;
+        let isNew = false;
+
+        // ★追加: すでに同じ音素が存在し、現在編集中の文字ではない場合は上書き確認をする
+        if (existingId && existingId !== currentEditingId) {
+            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) {
+                return; // キャンセルされたら保存中断
+            }
+            targetId = existingId; // 既存の枠を上書きするようターゲットを変更
+        } else if (!targetId || !charDictionary[targetId]) {
+            targetId = generateId(); 
+            isNew = true;
+        }
+
         const autoTrim = document.getElementById('autoTrimCheckbox').checked;
         let bounds = autoTrim ? getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height) : { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
         
@@ -587,8 +608,6 @@
         const topPad = (bounds.minY === 0) ? 0 : padSize; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : padSize;
         const actualHeight = bounds.maxY - bounds.minY + 1;
         const dataUrl = drawCanvas.toDataURL("image/png");
-        let targetId = currentEditingId; let isNew = false;
-        if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
 
         const img = new Image();
         img.onload = () => {
@@ -774,26 +793,20 @@
         return btn;
     }
 
-    // ★削除バグ完全修正
     function deleteCharacter(id) {
         const phonemeStr = charDictionary[id].phoneme;
         if(confirm(`「${phonemeStr}」を削除しますか？`)) {
             ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
             ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
             
-            // ★文書上の該当IDを未確定の音素（グレー文字）に戻す
             typedSequence = typedSequence.map(item => item === id ? phonemeStr : item);
-            
-            // ★履歴内のIDも音素に戻す
             undoStack = undoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
             redoStack = redoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
 
-            delete charDictionary[id]; 
-            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData();
+            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData();
             renderKeyboard(); renderOutputToCache();
         }
     }
-    
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
         const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
@@ -912,8 +925,7 @@
                     y += renderHeightActual;
                 }
             } else if (typeof item === 'string') {
-                // ★バグ対策: 無効なID（id-xxx...）は表示しない
-                if (item.startsWith('id-') && !charDictionary[item]) continue;
+                if (item.startsWith('id-') && !charDictionary[item]) continue; 
 
                 currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#bbbbbb"; currentCtx.textBaseline = "middle"; currentCtx.textAlign = "center";
                 const unregWidth = currentCtx.measureText(item).width + (renderHeight * 0.2);
@@ -1016,8 +1028,11 @@
         docContainer.addEventListener('pointerdown', (e) => {
             const idx = getIndexFromEvent(e);
             if (idx !== null) {
-                if (e.shiftKey) { if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx; } 
-                else { selectionAnchor = idx; cursorIndex = idx; }
+                if (e.shiftKey) {
+                    if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx;
+                } else {
+                    selectionAnchor = idx; cursorIndex = idx;
+                }
                 isTextSelecting = true; renderOutputToCache();
             }
         });
