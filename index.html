@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (縦書き余白最適化・超高速描画版)</title>
+    <title>人工文字作成エディタ (文章データ共有・スマホ保存対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -125,7 +125,7 @@
             border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
         }
 
-        .line-width-selector { display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333; }
+        .line-width-selector { display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333; flex-wrap: wrap; }
         .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
         .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
         .toggle-switch input { transform: scale(1.2); cursor: pointer; }
@@ -133,24 +133,26 @@
         .slider-container input[type="range"] { flex-grow: 1; }
         select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
         
+        /* ★画像保存用モーダル画面 */
         #downloadModal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;
         }
         #downloadModalContent {
-            background: #fff; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px;
-            max-height: 80vh; overflow-y: auto; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            background: #fff; padding: 20px; border-radius: 12px; width: 95%; max-width: 500px;
+            max-height: 90vh; overflow-y: hidden; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column;
         }
-        .download-link-btn {
-            display: block; padding: 12px; background: #007aff; color: white !important;
-            text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-bottom: 10px;
+        #downloadLinksContainer {
+            overflow-y: auto; flex-grow: 1; border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #f9f9f9;
         }
     </style>
 </head>
 <body>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
-        <h3>0. 辞書データの共有（エクスポート / インポート）</h3>
+        <h3>0. データの共有（エクスポート / インポート）</h3>
+        <p style="font-size: 0.85em; color: #555;">辞書データだけでなく、<strong style="color: #007aff;">今書いている文章データ</strong>も一緒に保存・復元されます。</p>
         <div class="controls">
             <button onclick="exportData()">作成データをダウンロード</button>
             <br><br>
@@ -170,6 +172,11 @@
             <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細い</label>
             <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 普通</label>
             <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太い</label>
+            
+            <span style="margin-left: 5px; border-left: 1px solid #ccc; padding-left: 10px; display: inline-block;"></span>
+            <label class="toggle-switch" style="font-weight: normal; margin-left: 5px;">
+                <input type="checkbox" id="autoTrimCheckbox" checked> 空白を自動で詰める
+            </label>
         </div>
         <div class="controls">
             <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
@@ -238,26 +245,28 @@
         </div>
         
         <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
-            <button onclick="downloadImageCombined()" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
-            <button onclick="openDownloadModal()" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
+            <button onclick="showSaveModal('combined')" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
+            <button onclick="showSaveModal('individual')" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
         </div>
     </div>
 
+    <!-- ★スマホ用・確実保存モーダル -->
     <div id="downloadModal">
         <div id="downloadModalContent">
-            <h3 style="margin-top: 0; color: #333;">ページごとに保存</h3>
-            <p style="font-size: 13px; color: #555; margin-bottom: 20px;">
-                スマホの制限を防ぐため、以下のボタンを1つずつタップして保存してください。
+            <h3 style="margin-top: 0; color: #333;">画像の保存</h3>
+            <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
+                スマホの場合はプレビュー画像を<strong>長押し</strong>して「写真に追加」や「保存」を選択してください。PCの場合は右クリックから保存できます。
             </p>
             <div id="downloadLinksContainer"></div>
-            <button class="btn-secondary" style="width: 100%; margin-top: 10px;" onclick="closeDownloadModal()">閉じる</button>
+            <button class="btn-secondary" style="width: 100%; margin-top: 15px; padding: 12px; font-weight: bold;" onclick="closeDownloadModal()">閉じる</button>
         </div>
     </div>
 
 <script>
-    // V20へのアップデート (縦書き最適化・超高速化)
-    const STORAGE_KEY_DICT_V20 = 'artificial_text_dict_v20';
-    const STORAGE_KEY_LAYOUTS_V20 = 'artificial_text_layouts_v20';
+    // V22 (文章データ保存機能 ＆ スマホ画像保存モーダル対応版)
+    const STORAGE_KEY_DICT_V22 = 'artificial_text_dict_v22';
+    const STORAGE_KEY_LAYOUTS_V22 = 'artificial_text_layouts_v22';
+    const STORAGE_KEY_DOC_V22 = 'artificial_text_doc_v22'; // ★文章データ保存用
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -312,16 +321,37 @@
         ]
     };
 
-    function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V20);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V20);
-        if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
-        const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
-        const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_keyboard.json'; link.click(); URL.revokeObjectURL(url);
+    // ★文章や設定データのオートセーブ
+    function saveDocumentData() {
+        const docData = {
+            sequence: typedSequence,
+            textSize: textRenderSize,
+            direction: textDirection,
+            readingMode: isReadingMode
+        };
+        localStorage.setItem(STORAGE_KEY_DOC_V22, JSON.stringify(docData));
     }
 
+    // ★エクスポート（辞書＋配列＋文章データ）
+    function exportData() {
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V22);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V22);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V22);
+        
+        if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
+        
+        const exportObj = { 
+            dict: JSON.parse(dictData), 
+            layouts: JSON.parse(layoutData),
+            doc: docData ? JSON.parse(docData) : {}
+        };
+        
+        const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_data.json'; link.click(); URL.revokeObjectURL(url);
+    }
+
+    // ★インポート（辞書＋配列＋文章データ）
     function importData(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader();
@@ -329,11 +359,15 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V22, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V22, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) {
+                        localStorage.setItem(STORAGE_KEY_DOC_V22, JSON.stringify(importedData.doc));
+                    }
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V20)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V20)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    // 古い形式の互換性サポート
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V22)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V22)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -342,8 +376,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V22, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V22, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -352,8 +386,11 @@
     }
 
     function clearAllData() {
-        if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V20); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V20); location.reload();
+        if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
+            localStorage.removeItem(STORAGE_KEY_DICT_V22); 
+            localStorage.removeItem(STORAGE_KEY_LAYOUTS_V22); 
+            localStorage.removeItem(STORAGE_KEY_DOC_V22); 
+            location.reload();
         }
     }
 
@@ -401,7 +438,6 @@
         });
     }
 
-    // ★修正: 縦横の境界を同時に取得する強力な解析関数
     function getCharacterBoundsFromCtx(ctx, w, h) {
         const imgData = ctx.getImageData(0, 0, w, h);
         let minX = w, maxX = 0, minY = h, maxY = 0; let found = false;
@@ -418,10 +454,29 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V20)) 
-                          || JSON.parse(localStorage.getItem('artificial_text_dict_v19')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V20)) 
-                             || JSON.parse(localStorage.getItem('artificial_text_layouts_v19'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V22)) || JSON.parse(localStorage.getItem('artificial_text_dict_v21')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V22)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v21'));
+        
+        // ★文章データの復元
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V22));
+        if (savedDoc) {
+            typedSequence = savedDoc.sequence || [];
+            cursorIndex = typedSequence.length;
+            
+            if (savedDoc.textSize) {
+                textRenderSize = savedDoc.textSize;
+                document.getElementById('textSizeSlider').value = textRenderSize;
+                document.getElementById('textSizeLabel').textContent = textRenderSize + 'px';
+            }
+            if (savedDoc.direction) {
+                textDirection = savedDoc.direction;
+                document.getElementById('textDirectionSelect').value = textDirection;
+            }
+            if (savedDoc.readingMode !== undefined) {
+                isReadingMode = savedDoc.readingMode;
+                document.getElementById('toggleReading').checked = isReadingMode;
+            }
+        }
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -448,12 +503,9 @@
                         minX: data.minX, minY: data.minY
                     };
                     
-                    // 古いバージョンのデータを高速描画用(V20)に自動アップグレード
                     if (charInfo.minX === undefined || charInfo.actualHeight === undefined) {
-                        const tempCanvas = document.createElement('canvas'); 
-                        tempCanvas.width = 100; tempCanvas.height = 100;
-                        const tempCtx = tempCanvas.getContext('2d'); 
-                        tempCtx.drawImage(img, 0, 0);
+                        const tempCanvas = document.createElement('canvas'); tempCanvas.width = 100; tempCanvas.height = 100;
+                        const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0);
                         const bounds = getCharacterBoundsFromCtx(tempCtx, 100, 100);
                         
                         charInfo.minX = bounds.minX; charInfo.minY = bounds.minY;
@@ -490,8 +542,8 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V22, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V22, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -499,8 +551,7 @@
     let isDrawing = false;
     
     function setLineWidth(width) {
-        currentLineWidth = parseInt(width);
-        dCtx.lineWidth = currentLineWidth;
+        currentLineWidth = parseInt(width); dCtx.lineWidth = currentLineWidth;
     }
     dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth; dCtx.lineCap = "round";
 
@@ -510,38 +561,34 @@
 
     function clearDrawCanvas() { 
         dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); 
-        dCtx.lineWidth = currentLineWidth; 
-        currentEditingId = null; 
-        document.getElementById('phonemeInput').value = '';
+        dCtx.lineWidth = currentLineWidth; currentEditingId = null; document.getElementById('phonemeInput').value = '';
     }
 
     function saveCharacter() {
         const phoneme = document.getElementById('phonemeInput').value.trim();
         if (!phoneme) { alert("音素を入力してください！"); return; }
 
-        const bounds = getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height);
+        const autoTrim = document.getElementById('autoTrimCheckbox').checked;
+        let bounds;
+        if (autoTrim) {
+            bounds = getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height);
+        } else {
+            bounds = { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
+        }
         
-        // 横の余白情報
-        const leftPad = (bounds.minX === 0) ? 0 : 2;
-        const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : 2;
+        const leftPad = (bounds.minX === 0) ? 0 : 2; const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : 2;
         const actualWidth = bounds.maxX - bounds.minX + 1;
-        
-        // 縦の余白情報
-        const topPad = (bounds.minY === 0) ? 0 : 2;
-        const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : 2;
+        const topPad = (bounds.minY === 0) ? 0 : 2; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : 2;
         const actualHeight = bounds.maxY - bounds.minY + 1;
-        
         const dataUrl = drawCanvas.toDataURL("image/png");
 
-        let targetId = currentEditingId;
-        let isNew = false;
+        let targetId = currentEditingId; let isNew = false;
         if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
 
         const img = new Image();
         img.onload = () => {
             charDictionary[targetId] = { 
-                phoneme: phoneme, img: img, url: dataUrl,
-                minX: bounds.minX, minY: bounds.minY,
+                phoneme: phoneme, img: img, url: dataUrl, minX: bounds.minX, minY: bounds.minY,
                 actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, 
                 actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad
             };
@@ -620,19 +667,23 @@
         else wrapper.classList.add('hide-key-labels');
     }
 
+    // ★設定が変更されたら保存する
     function toggleReadingUI() {
         isReadingMode = document.getElementById('toggleReading').checked;
+        saveDocumentData();
         renderOutputToCache();
     }
     
     function changeTextSize() {
         textRenderSize = parseInt(document.getElementById('textSizeSlider').value, 10);
         document.getElementById('textSizeLabel').textContent = textRenderSize + 'px';
+        saveDocumentData();
         renderOutputToCache();
     }
     
     function changeTextDirection() {
         textDirection = document.getElementById('textDirectionSelect').value;
+        saveDocumentData();
         renderOutputToCache();
     }
 
@@ -844,10 +895,11 @@
         saveDataToStorage(); renderKeyboard();
     }
 
-    function typeCharacter(id) { typedSequence.splice(cursorIndex, 0, id); cursorIndex++; renderOutputToCache(); }
-    function addFunctionKey(funcType) { typedSequence.splice(cursorIndex, 0, funcType); cursorIndex++; renderOutputToCache(); }
-    function backspace() { if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; renderOutputToCache(); } }
-    function clearOutput() { typedSequence = []; cursorIndex = 0; renderOutputToCache(); }
+    // ★入力時にオートセーブを実行する
+    function typeCharacter(id) { typedSequence.splice(cursorIndex, 0, id); cursorIndex++; saveDocumentData(); renderOutputToCache(); }
+    function addFunctionKey(funcType) { typedSequence.splice(cursorIndex, 0, funcType); cursorIndex++; saveDocumentData(); renderOutputToCache(); }
+    function backspace() { if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } }
+    function clearOutput() { typedSequence = []; cursorIndex = 0; saveDocumentData(); renderOutputToCache(); }
 
     function createNewPage() {
         const canvas = document.createElement('canvas');
@@ -858,7 +910,6 @@
         return ctx;
     }
 
-    // ★修正: 超高速描画かつ縦横の余白を完璧に詰める新ロジック
     function renderOutputToCache() {
         pagesData = [];
         window.cachedCursorPositions = [];
@@ -867,7 +918,7 @@
         
         const renderHeight = textRenderSize;
         const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
-        const scale = renderHeight / drawCanvas.height; // height is 100
+        const scale = renderHeight / drawCanvas.height; 
         cursorHeight = renderHeight;
 
         let x, y;
@@ -885,7 +936,6 @@
         for (let i = 0; i < typedSequence.length; i++) {
             const item = typedSequence[i];
             
-            // 縦書き時のカーソルの高さを保存
             let thisCursorHeight = renderHeight;
             if (textDirection === 'ttb' && charDictionary[item]) {
                 thisCursorHeight = charDictionary[item].actualHeight * scale;
@@ -971,7 +1021,7 @@
                     }
                     x -= renderWidthActual;
                 }
-                else { // ttb: 縦書き時はY方向の余白をカットして描画
+                else { 
                     const renderHeightActual = charData.actualHeight * scale;
                     if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) {
                         y = MARGIN_Y; x -= renderHeight + lineSpacing;
@@ -981,7 +1031,6 @@
                     }
                     const sourceY = Math.max(0, charData.minY - charData.topPad);
                     
-                    // 横はフルサイズ(100)のまま描画し、中心線を保つ
                     currentCtx.drawImage(charData.img, 0, sourceY, 100, charData.actualHeight, x, y, renderHeight, renderHeightActual);
                     
                     if (isReadingMode) {
@@ -1088,41 +1137,41 @@
         if (typingTimeout) clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { startCursorBlink(); }, 500);
     }
-    
-    function downloadImageCombined() {
-        if (pagesData.length === 0) return;
-        const combinedCanvas = document.createElement('canvas');
-        combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
-        const ctx = combinedCanvas.getContext('2d');
-        pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
 
-        try {
-            combinedCanvas.toBlob(function(blob) {
-                if (!blob) throw new Error("Blob creation failed");
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_document.png';
-                document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
-            }, 'image/png');
-        } catch (e) {
-            const dataUrl = combinedCanvas.toDataURL("image/png"); const win = window.open();
-            if (win) { win.document.write('<p style="font-size:14px; text-align:center;">画像を長押しして保存してください。</p><img src="' + dataUrl + '" style="max-width:100%; border:1px solid #ccc;"/>'); } 
-            else { alert("ダウンロードがブロックされました。"); }
-        }
-    }
-
-    function openDownloadModal() {
+    // ★スマホ対策の画像保存モーダル処理
+    function showSaveModal(mode) {
         if (pagesData.length === 0) return;
         const container = document.getElementById('downloadLinksContainer');
         container.innerHTML = '';
         
-        pagesData.forEach((canvas, index) => {
-            const dataUrl = canvas.toDataURL("image/png");
-            const a = document.createElement('a');
-            a.href = dataUrl; a.download = `artificial_text_page_${index + 1}.png`; a.className = 'download-link-btn';
-            a.textContent = `📄 ページ ${index + 1} を保存`;
-            a.onclick = () => { setTimeout(closeDownloadModal, 500); };
-            container.appendChild(a);
-        });
+        if (mode === 'combined') {
+            const combinedCanvas = document.createElement('canvas');
+            combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
+            const ctx = combinedCanvas.getContext('2d');
+            pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
+            
+            const img = document.createElement('img');
+            img.src = combinedCanvas.toDataURL("image/png");
+            img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
+            container.appendChild(img);
+        } else {
+            pagesData.forEach((canvas, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.style.marginBottom = "15px";
+                
+                const title = document.createElement('div');
+                title.textContent = `📄 ページ ${index + 1}`;
+                title.style.fontWeight = "bold"; title.style.marginBottom = "5px"; title.style.fontSize = "14px";
+                
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL("image/png");
+                img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
+                
+                wrapper.appendChild(title);
+                wrapper.appendChild(img);
+                container.appendChild(wrapper);
+            });
+        }
         
         document.getElementById('downloadModal').style.display = 'flex';
     }
