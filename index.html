@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (iOS風バックスペース配置・完成版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -11,11 +11,9 @@
         :root { --ios-bg: #d1d5db; --ios-key: #ffffff; --ios-key-shadow: #888a8d; --ios-key-text: #000000; --ios-sys-key: #b4b8c1; }
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; max-width: 800px; margin: auto; background-color: #f4f4f5; overscroll-behavior-y: none; }
+        .section { margin-bottom: 20px; padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
         #mainFlexContainer { display: flex; flex-direction: column; gap: 20px; }
-        .section { padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        
-        /* Flex Order for layout toggle */
         #section-dict { order: 1; }
         #section-draw { order: 2; }
         #section-keyboard { order: 3; }
@@ -100,40 +98,33 @@
     <div id="toast">操作しました</div>
 
     <div id="mainFlexContainer">
-        <!-- セクション 0 -->
         <div class="section" id="section-dict" style="background: #eef7ff; border-color: #bbddef;">
-            <h3 style="margin-top: 0;">0. データの共有（エクスポート / インポート）</h3>
-            <p style="font-size: 0.85em; color: #555;">辞書データと<strong style="color: #007aff;">今書いている文章データ</strong>が一緒に保存・復元されます。</p>
+            <h3 style="margin-top: 0;">データの共有</h3>
             <div class="controls">
-                <button onclick="exportData()">作成データをダウンロード</button>
-                <br><br>
-                <label for="importFile" style="font-size: 0.9em; font-weight: bold;">データを取り込む:</label>
+                <button onclick="exportData()">ダウンロード</button>
                 <input type="file" id="importFile" accept=".json" onchange="importData(event)">
             </div>
             <div class="controls" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-                <button class="btn-danger" onclick="clearAllData()">ブラウザ内の全データリセット</button>
+                <button class="btn-danger" onclick="clearAllData()">全データリセット</button>
             </div>
         </div>
 
-        <!-- セクション 1 -->
         <div class="section" id="section-draw">
-            <h3 style="margin-top: 0;">1. 文字をつくる / 編集する</h3>
+            <h3 style="margin-top: 0;">文字を作成</h3>
             <canvas id="drawCanvas" width="200" height="200"></canvas>
             <div class="line-width-selector">
                 <span>線の太さ:</span>
-                <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細い</label>
-                <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 普通</label>
-                <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太い</label>
-                
-                <span style="margin-left: 5px; border-left: 1px solid #ccc; padding-left: 10px; display: inline-block;"></span>
-                <label class="toggle-switch" style="font-weight: normal; margin-left: 5px;">
-                    <input type="checkbox" id="autoTrimCheckbox" checked> 空白を自動で詰める
+                <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細</label>
+                <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 中</label>
+                <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太</label>
+                <label class="toggle-switch" style="font-weight: normal; margin-left: 10px;">
+                    <input type="checkbox" id="autoTrimCheckbox" checked> 空白を詰める
                 </label>
             </div>
             <div class="controls">
-                <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
-                <button onclick="saveCharacter()">登録 / 上書き</button>
-                <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す</button>
+                <input type="text" id="phonemeInput" placeholder="音素">
+                <button onclick="saveCharacter()">登録</button>
+                <button class="btn-secondary" onclick="clearDrawCanvas()">クリア</button>
                 <label class="btn-secondary" style="cursor: pointer; padding: 8px 12px; border-radius: 6px; font-weight: 500; font-size: 0.9em;">
                     画像から作成
                     <input type="file" accept="image/*" style="display: none;" onchange="uploadCharImage(event)">
@@ -141,18 +132,13 @@
             </div>
         </div>
 
-        <!-- セクション 2 -->
         <div class="section" id="section-keyboard">
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                <h3 style="margin: 0;">2. キーボード</h3>
-                <div style="display: flex; gap: 10px; font-size: 0.85em; color: #333; font-weight: bold;">
-                    <label style="cursor: pointer;"><input type="checkbox" id="optKbBottom" onchange="updateLayout()"> 🔽 紙面の下に配置</label>
-                    <label style="cursor: pointer;"><input type="checkbox" id="optKbHide" onchange="updateLayout()"> 👁️ 隠す</label>
-                </div>
+                <h3 style="margin: 0;">キーボード</h3>
+                <label style="cursor: pointer; font-size: 0.85em; font-weight: bold;"><input type="checkbox" id="optKbBottom" onchange="updateLayout()"> 紙面の下に配置</label>
             </div>
             
             <div id="keyboardContentWrapper">
-                <p style="font-size: 0.85em; color: #555; margin-top: 0; margin-bottom: 10px;">※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。</p>
                 <div class="tabs" id="kbTabs" style="justify-content: space-between; align-items: center;">
                     <div style="display: flex; gap: 10px;">
                         <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
@@ -164,24 +150,22 @@
                     </div>
                 </div>
                 
-                <div id="editBanner">[編集] 長押しでドラッグ移動・交換が可能。システムキーに落とすとページ移動します。</div>
+                <div id="editBanner">[編集] 長押しでドラッグ移動・交換が可能。</div>
 
                 <div class="keyboard-wrapper" id="keyboardWrapper">
                     <div id="keysContainer" style="width: 100%;"></div>
-                    <!-- 全キーボード共通のシステム列 (Backspaceを標準搭載) -->
+                    <!-- バックスペースはシステム行から撤去し、各キーボード内に直接配置 -->
                     <div class="system-row">
                         <div id="sysBtn123" class="key-btn key-system sys-drop-target" style="min-width: 42px;" onclick="toggleNumbersPage()">123</div>
                         <div class="key-btn key-space" onclick="clickVirtualKey('空白', '空白')">空白</div>
-                        <div class="key-btn key-system" style="font-size: 20px; min-width: 42px;" onclick="clickVirtualKey('Backspace', '⌫')">⌫</div>
                         <div class="key-btn key-return" onclick="clickVirtualKey('改行', '改行')">改行</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- セクション 3 -->
         <div class="section" id="section-output">
-            <h3 style="margin-top: 0;">3. 完成した文章</h3>
+            <h3 style="margin-top: 0;">文章作成</h3>
             <div class="toolbar">
                 <button onclick="undo()" id="btnUndo" disabled>Undo</button>
                 <button onclick="redo()" id="btnRedo" disabled>Redo</button>
@@ -189,7 +173,7 @@
                 <button onclick="copyText()">コピー</button>
                 <button onclick="cutText()">カット</button>
                 <button onclick="pasteText()">ペースト</button>
-                <button class="btn-danger" style="margin-left: auto; border:none; background:#ff3b30; color:white;" onclick="clearOutputWithHistory()">全消去</button>
+                <button class="btn-danger" style="margin-left: auto; border:none;" onclick="clearOutputWithHistory()">全消去</button>
             </div>
 
             <div class="slider-container">
@@ -201,62 +185,53 @@
             <div class="slider-container" style="margin-bottom: 15px;">
                 <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">書字方向:</span>
                 <select id="textDirectionSelect" onchange="changeTextDirection()" style="flex-grow: 1;">
-                    <option value="ltr">左から右 (横書き)</option>
-                    <option value="rtl">右から左 (横書き)</option>
-                    <option value="ttb">上から下 (縦書き)</option>
+                    <option value="ltr">左から右</option>
+                    <option value="rtl">右から左</option>
+                    <option value="ttb">上から下</option>
                 </select>
                 <label class="toggle-switch" style="margin-left: 10px;">
-                    <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)
+                    <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ
                 </label>
             </div>
 
             <div id="documentContainer"></div>
             
             <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
-                <button onclick="showSaveModal('combined')" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
-                <button onclick="showSaveModal('individual')" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
+                <button onclick="showSaveModal('combined')" style="flex: 1; font-size: 0.85em;">全ページ保存</button>
+                <button onclick="showSaveModal('individual')" class="btn-secondary" style="flex: 1; font-size: 0.85em;">ページ別保存</button>
             </div>
         </div>
     </div>
 
-    <!-- 保存モーダル -->
     <div id="downloadModal">
         <div id="downloadModalContent">
-            <h3 style="margin-top: 0; color: #333;">画像の保存</h3>
-            <p style="font-size: 13px; color: #555; margin-bottom: 15px;">プレビュー画像を<strong>長押し</strong>して「写真に追加」を選択、PCは右クリックから保存してください。</p>
+            <h3 style="margin-top: 0; color: #333;">保存</h3>
+            <p style="font-size: 13px; color: #555; margin-bottom: 15px;">プレビューを長押しして「写真に追加」を選択。</p>
             <div id="downloadLinksContainer"></div>
             <button class="btn-secondary" style="width: 100%; margin-top: 15px; padding: 12px; font-weight: bold;" onclick="closeDownloadModal()">閉じる</button>
         </div>
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V31 = 'artificial_text_dict_v31';
-    const STORAGE_KEY_LAYOUTS_V31 = 'artificial_text_layouts_v31';
-    const STORAGE_KEY_DOC_V31 = 'artificial_text_doc_v31';
-
+    const STORAGE_KEY_DICT_V32 = 'artificial_text_dict_v32';
+    const STORAGE_KEY_LAYOUTS_V32 = 'artificial_text_layouts_v32';
+    const STORAGE_KEY_DOC_V32 = 'artificial_text_doc_v32';
     const DPI = 2;
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
-    
     let typedSequence = [];    
     let isEditMode = false;
     let mainTab = 'qwerty'; let qwertyPage = 'lower'; let customPageNum = 1; 
     let currentEditingId = null; let dragSource = null; 
-    
     let currentLineWidth = 4; let isReadingMode = false; let textRenderSize = 50; let textDirection = 'ltr'; 
     let cursorIndex = 0; let selectionAnchor = null; 
-
-    // Undo / Redo Stacks
-    let undoStack = [];
-    let redoStack = [];
-
+    let undoStack = []; let redoStack = [];
     const PAGE_WIDTH = 600 * DPI; const PAGE_HEIGHT = Math.floor(PAGE_WIDTH * 1.414); 
     const MARGIN_X = 30 * DPI; const MARGIN_Y = 40 * DPI;
-    
     let pagesData = []; window.cachedCursorPositions = [];
     let cursorX = MARGIN_X; let cursorY = MARGIN_Y; let cursorHeight = 50 * DPI; let cursorPage = 0;
     let isCursorVisible = true; let cursorBlinkTimer = null; let typingTimeout = null;
-
+    
     const DEFAULT_LAYOUTS = {
         lower: [['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['z','x','c','v','b','n','m'], []],
         upper: [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['Z','X','C','V','B','N','M'], []],
@@ -264,467 +239,78 @@
         symbols: [['[',']','{','}','#','%','^','*','+','='],['_','\\','|','~','<','>','$','£','¥','•'],['.',',','?','!','\''], []]
     };
 
-    // --- レイアウト変更ロジック ---
-    function updateLayout() {
-        const kbSec = document.getElementById('section-keyboard');
-        const outSec = document.getElementById('section-output');
-        const isBottom = document.getElementById('optKbBottom').checked;
-        const isHide = document.getElementById('optKbHide').checked;
-
-        kbSec.style.order = isBottom ? "4" : "3";
-        outSec.style.order = isBottom ? "3" : "4";
-
-        const kbContent = document.getElementById('keyboardContentWrapper');
-        kbContent.style.display = isHide ? 'none' : 'block';
-    }
-
-    // --- 履歴管理 ---
-    function updateUndoRedoUI() {
-        document.getElementById('btnUndo').disabled = undoStack.length === 0;
-        document.getElementById('btnRedo').disabled = redoStack.length === 0;
-    }
-    
-    function saveHistory() {
-        undoStack.push({ seq: [...typedSequence], cursor: cursorIndex });
-        if (undoStack.length > 50) undoStack.shift();
-        redoStack = [];
-        updateUndoRedoUI();
-    }
-    
-    function undo() {
-        if (undoStack.length > 0) {
-            redoStack.push({ seq: [...typedSequence], cursor: cursorIndex });
-            const state = undoStack.pop();
-            typedSequence = [...state.seq]; cursorIndex = state.cursor;
-            clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI();
-        }
-    }
-    
-    function redo() {
-        if (redoStack.length > 0) {
-            undoStack.push({ seq: [...typedSequence], cursor: cursorIndex });
-            const state = redoStack.pop();
-            typedSequence = [...state.seq]; cursorIndex = state.cursor;
-            clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI();
-        }
-    }
-
+    function updateLayout() { const kbSec = document.getElementById('section-keyboard'); const outSec = document.getElementById('section-output'); const isBottom = document.getElementById('optKbBottom').checked; kbSec.style.order = isBottom ? "4" : "3"; outSec.style.order = isBottom ? "3" : "4"; }
+    function updateUndoRedoUI() { document.getElementById('btnUndo').disabled = undoStack.length === 0; document.getElementById('btnRedo').disabled = redoStack.length === 0; }
+    function saveHistory() { undoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); if (undoStack.length > 50) undoStack.shift(); redoStack = []; updateUndoRedoUI(); }
+    function undo() { if (undoStack.length > 0) { redoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); const state = undoStack.pop(); typedSequence = [...state.seq]; cursorIndex = state.cursor; clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI(); } }
+    function redo() { if (redoStack.length > 0) { undoStack.push({ seq: [...typedSequence], cursor: cursorIndex }); const state = redoStack.pop(); typedSequence = [...state.seq]; cursorIndex = state.cursor; clearSelection(); saveDocumentData(); renderOutputToCache(); updateUndoRedoUI(); } }
     function reAnalyzeSequence() {
-        let rawStr = sequenceToString(typedSequence);
-        let newSeq = [];
-        let i = 0;
+        let rawStr = sequenceToString(typedSequence); let newSeq = []; let i = 0;
         while(i < rawStr.length) {
             if (rawStr[i] === '\n') { newSeq.push('改行'); i++; continue; }
             if (rawStr[i] === ' ') { newSeq.push('空白'); i++; continue; }
             let matchId = null; let matchLen = 0;
             for (let len = Math.min(15, rawStr.length - i); len > 0; len--) {
                 let sub = rawStr.substring(i, i + len);
-                for (const id in charDictionary) {
-                    if (charDictionary[id].phoneme === sub) { matchId = id; matchLen = len; break; }
-                }
+                for (const id in charDictionary) { if (charDictionary[id].phoneme === sub) { matchId = id; matchLen = len; break; } }
                 if (matchId) break;
             }
-            if (matchId) { newSeq.push(matchId); i += matchLen; } 
-            else { newSeq.push(rawStr[i]); i++; }
+            if (matchId) { newSeq.push(matchId); i += matchLen; } else { newSeq.push(rawStr[i]); i++; }
         }
-        typedSequence = newSeq;
-        cursorIndex = typedSequence.length;
-        clearSelection(); saveDocumentData(); renderOutputToCache();
+        typedSequence = newSeq; cursorIndex = typedSequence.length; clearSelection(); saveDocumentData(); renderOutputToCache();
     }
-
     function hasSelection() { return selectionAnchor !== null && selectionAnchor !== cursorIndex; }
     function clearSelection() { selectionAnchor = null; }
     function deleteSelection() {
         if (!hasSelection()) return;
-        const start = Math.min(selectionAnchor, cursorIndex);
-        const end = Math.max(selectionAnchor, cursorIndex);
-        typedSequence.splice(start, end - start);
-        cursorIndex = start; clearSelection();
+        const start = Math.min(selectionAnchor, cursorIndex); const end = Math.max(selectionAnchor, cursorIndex);
+        typedSequence.splice(start, end - start); cursorIndex = start; clearSelection();
     }
-
-    function sequenceToString(seq) {
-        return seq.map(item => {
-            if (item === '改行') return '\n'; 
-            if (item === '空白') return ' ';
-            if (charDictionary[item]) return charDictionary[item].phoneme;
-            if (typeof item === 'string' && item.startsWith('id-')) return ''; 
-            return item;
-        }).join('');
-    }
-
-    function showToast(msg) {
-        const toast = document.getElementById('toast'); toast.textContent = msg; toast.style.opacity = '1';
-        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
-    }
-
-    async function copyText() {
-        let text = "";
-        if (hasSelection()) {
-            const start = Math.min(selectionAnchor, cursorIndex); const end = Math.max(selectionAnchor, cursorIndex);
-            text = sequenceToString(typedSequence.slice(start, end));
-        } else { text = sequenceToString(typedSequence); }
-        if (!text) { showToast("コピーする文字がありません"); return; }
-        try { await navigator.clipboard.writeText(text); showToast("コピーしました"); } catch (err) { alert("コピー失敗"); }
-    }
-
-    async function cutText() {
-        if (!hasSelection()) { selectionAnchor = 0; cursorIndex = typedSequence.length; }
-        if (typedSequence.length === 0) return;
-        await copyText(); saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache();
-    }
-
+    function sequenceToString(seq) { return seq.map(item => { if (item === '改行') return '\n'; if (item === '空白') return ' '; if (charDictionary[item]) return charDictionary[item].phoneme; if (typeof item === 'string' && item.startsWith('id-')) return ''; return item; }).join(''); }
+    function showToast(msg) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => { toast.style.opacity = '0'; }, 2000); }
+    async function copyText() { let text = hasSelection() ? sequenceToString(typedSequence.slice(Math.min(selectionAnchor, cursorIndex), Math.max(selectionAnchor, cursorIndex))) : sequenceToString(typedSequence); if (!text) { showToast("コピーする文字なし"); return; } await navigator.clipboard.writeText(text); showToast("コピー"); }
+    async function cutText() { if (!hasSelection()) { selectionAnchor = 0; cursorIndex = typedSequence.length; } if (typedSequence.length === 0) return; await copyText(); saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); }
     async function pasteText() {
-        try {
-            const text = await navigator.clipboard.readText(); if (!text) return;
-            saveHistory();
-            if (hasSelection()) deleteSelection();
-            for (let i = 0; i < text.length; i++) {
-                let char = text[i];
-                if (char === '\n') { typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; }
-                else if (char === ' ') { typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; }
-                else {
-                    typedSequence.splice(cursorIndex, 0, char); cursorIndex++;
-                    let bestMatchId = null; let bestMatchLen = 0;
-                    for (let len = 1; len <= Math.min(cursorIndex, 15); len++) {
-                        let valid = true; let combined = "";
-                        for (let j = cursorIndex - len; j < cursorIndex; j++) {
-                            const item = typedSequence[j];
-                            if (item === '改行' || item === '空白') { valid = false; break; }
-                            combined += charDictionary[item] ? charDictionary[item].phoneme : item; 
-                        }
-                        if (!valid) break; 
-                        for (const id in charDictionary) { if (charDictionary[id].phoneme === combined) { bestMatchId = id; bestMatchLen = len; } }
-                    }
-                    if (bestMatchId) { typedSequence.splice(cursorIndex - bestMatchLen, bestMatchLen, bestMatchId); cursorIndex -= (bestMatchLen - 1); }
-                }
-            }
-            saveDocumentData(); renderOutputToCache(); showToast("ペーストしました");
-        } catch (err) { alert("ペースト失敗。ブラウザの許可を確認。"); }
+        try { const text = await navigator.clipboard.readText(); if (!text) return; saveHistory(); if (hasSelection()) deleteSelection(); for (let i = 0; i < text.length; i++) processInput(text[i]); saveDocumentData(); renderOutputToCache(); showToast("ペースト"); } catch (err) { alert("失敗"); }
     }
-
-    function selectAllText() { selectionAnchor = 0; cursorIndex = typedSequence.length; renderOutputToCache(); showToast("全選択しました"); }
+    function selectAllText() { selectionAnchor = 0; cursorIndex = typedSequence.length; renderOutputToCache(); showToast("全選択"); }
     function clearOutputWithHistory() { saveHistory(); typedSequence = []; cursorIndex = 0; clearSelection(); saveDocumentData(); renderOutputToCache(); }
-
-    function saveDocumentData() {
-        const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode };
-        localStorage.setItem(STORAGE_KEY_DOC_V31, JSON.stringify(docData));
-    }
-
-    function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V31);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V31);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V31);
-        if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
-        
-        let defaultName = 'artificial_text_data';
-        let fileName = prompt("保存するファイル名を入力してください（拡張子不要）", defaultName);
-        if (fileName === null) return; 
-        if (fileName.trim() === '') fileName = defaultName;
-        
-        const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} };
-        const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a'); link.href = url; link.download = fileName + '.json'; link.click(); URL.revokeObjectURL(url);
-    }
-
-    function importData(event) {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V31, JSON.stringify(importedData.doc));
-                } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
-                    for (const phoneme in importedData) {
-                        if (typeof importedData[phoneme] === 'string') {
-                            const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-                            currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50*DPI, leftPad: 2*DPI, rightPad: 2*DPI, actualHeight: 50*DPI, topPad: 2*DPI, bottomPad: 2*DPI, minX: 25*DPI, minY: 25*DPI };
-                            if (currentLayouts.custom1.length === 0) currentLayouts.custom1.push([]);
-                            let targetRow = currentLayouts.custom1[currentLayouts.custom1.length - 1];
-                            if (targetRow.length >= 10) currentLayouts.custom1.push([newId]); else targetRow.push(newId);
-                        }
-                    }
-                    localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(currentLayouts));
-                }
-                alert("データを取り込みました！"); location.reload();
-            } catch (error) { alert("読み込みに失敗しました。"); }
-        };
-        reader.readAsText(file);
-    }
-
-    function clearAllData() {
-        if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V31); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V31); localStorage.removeItem(STORAGE_KEY_DOC_V31); location.reload();
-        }
-    }
-
-    function generateId() { return 'id-' + Date.now() + '-' + Math.floor(Math.random() * 1000); }
-
+    function saveDocumentData() { const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode }; localStorage.setItem(STORAGE_KEY_DOC_V32, JSON.stringify(docData)); }
+    function exportData() { const dictData = localStorage.getItem(STORAGE_KEY_DICT_V32); const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V32); const docData = localStorage.getItem(STORAGE_KEY_DOC_V32); if (!dictData) return; let fileName = prompt("保存ファイル名", "data") || "data"; const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} }; const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName + '.json'; link.click(); URL.revokeObjectURL(url); }
+    function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); localStorage.setItem(STORAGE_KEY_DICT_V32, JSON.stringify(d.dict)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V32, JSON.stringify(d.layouts)); if(d.doc) localStorage.setItem(STORAGE_KEY_DOC_V32, JSON.stringify(d.doc)); location.reload(); } catch(e) { alert("エラー"); } }; reader.readAsText(file); }
+    function clearAllData() { if (confirm("全消去しますか？")) { localStorage.removeItem(STORAGE_KEY_DICT_V32); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V32); localStorage.removeItem(STORAGE_KEY_DOC_V32); location.reload(); } }
+    function generateId() { return 'id-' + Date.now(); }
     function cleanGhostIds() {
-        const isGhost = (val) => typeof val === 'string' && val.startsWith('id-') && !charDictionary[val];
-        const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
         ['custom1', 'custom2'].forEach(cPage => {
-            if (Array.isArray(layouts[cPage])) {
-                let newRows = [];
-                layouts[cPage].forEach(row => {
-                    let validItems = row.filter(v => !isGhost(v) && !isBaseUnregistered(v) && v !== '');
-                    while(validItems.length > 10) { newRows.push(validItems.splice(0, 10)); }
-                    if (validItems.length > 0) newRows.push(validItems);
-                });
-                layouts[cPage] = newRows.filter(r => r.length > 0);
-            }
-            if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
-        });
-        ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
-            for(let r = 0; r < 4; r++) { layouts[page][r] = layouts[page][r].filter(v => !isGhost(v) && v !== ''); if (r === 3) layouts[page][r] = layouts[page][r].filter(v => !isBaseUnregistered(v)); }
+            if (Array.isArray(layouts[cPage])) { let newRows = []; layouts[cPage].forEach(row => { let v = row.filter(x => charDictionary[x] || !x.startsWith('id-')); while(v.length > 10) newRows.push(v.splice(0, 10)); if(v.length) newRows.push(v); }); layouts[cPage] = newRows; }
         });
     }
-
-    function repairCollapsedRows() {
-        ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
-            for(let r = 0; r < 3; r++) {
-                const def = DEFAULT_LAYOUTS[page][r]; const row = layouts[page][r];
-                def.forEach((letter, i) => {
-                    let found = row.includes(letter);
-                    if (!found) found = row.some(val => typeof val === 'string' && val.startsWith('id-') && charDictionary[val] && charDictionary[val].phoneme === letter);
-                    if (!found) {
-                        let insertIdx = i;
-                        if (i > 0) {
-                            const prevLetter = def[i-1];
-                            const prevIdx = row.findIndex(val => val === prevLetter || (typeof val === 'string' && val.startsWith('id-') && charDictionary[val] && charDictionary[val].phoneme === prevLetter));
-                            if (prevIdx !== -1) insertIdx = prevIdx + 1;
-                        }
-                        row.splice(insertIdx, 0, letter);
-                    }
-                });
-            }
-        });
-    }
-
-    function getCharacterBoundsFromCtx(ctx, w, h) {
-        const imgData = ctx.getImageData(0, 0, w, h);
-        let minX = w, maxX = 0, minY = h, maxY = 0; let found = false;
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                if (imgData.data[(y * w + x) * 4 + 3] > 0) {
-                    if (x < minX) minX = x; if (x > maxX) maxX = x;
-                    if (y < minY) minY = y; if (y > maxY) maxY = y;
-                    found = true;
-                }
-            }
-        }
-        return found ? { minX, maxX, minY, maxY } : { minX: 0, maxX: w-1, minY: 0, maxY: h-1 };
-    }
-
-    function finalizeLoad() {
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); renderOutputToCache(); startCursorBlink(); updateUndoRedoUI();
-    }
-
+    function repairCollapsedRows() { ['lower', 'upper', 'numbers', 'symbols'].forEach(p => { for(let r=0; r<3; r++) { const def = DEFAULT_LAYOUTS[p][r]; def.forEach((l, i) => { if (!layouts[p][r].includes(l)) layouts[p][r].splice(i, 0, l); }); } }); }
+    function getCharacterBoundsFromCtx(ctx, w, h) { const d = ctx.getImageData(0,0,w,h); let minX=w, maxX=0, minY=h, maxY=0, found=false; for(let y=0; y<h; y++) for(let x=0; x<w; x++) if(d.data[(y*w+x)*4+3]>0){ if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; found=true; } return found ? {minX, maxX, minY, maxY} : {minX:0, maxX:w-1, minY:0, maxY:h-1}; }
+    function finalizeLoad() { cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); renderOutputToCache(); startCursorBlink(); updateUndoRedoUI(); }
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || JSON.parse(localStorage.getItem('artificial_text_dict_v30')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v30'));
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V31)) || JSON.parse(localStorage.getItem('artificial_text_doc_v30'));
-        
-        if (savedDoc) {
-            typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
-            if (savedDoc.textSize) { textRenderSize = savedDoc.textSize; document.getElementById('textSizeSlider').value = textRenderSize; document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; }
-            if (savedDoc.direction) { textDirection = savedDoc.direction; document.getElementById('textDirectionSelect').value = textDirection; }
-            if (savedDoc.readingMode !== undefined) { isReadingMode = savedDoc.readingMode; document.getElementById('toggleReading').checked = isReadingMode; }
-        }
-
-        if (savedLayouts) layouts = savedLayouts;
-        else {
-            layouts.lower = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.lower)); layouts.upper = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.upper));
-            layouts.numbers = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.numbers)); layouts.symbols = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.symbols));
-            layouts.custom1 = [[]]; layouts.custom2 = [[]];
-        }
-
-        const totalKeys = Object.keys(savedDict).length;
-        if (totalKeys === 0) { finalizeLoad(); } 
-        else {
-            let loadedCount = 0;
-            for (const id in savedDict) {
-                const data = savedDict[id]; const img = new Image();
-                img.onload = () => {
-                    let charInfo = { ...data, img: img };
-                    if (img.width === 100 && !charInfo.migratedToV23) {
-                        const tempCanvas = document.createElement('canvas'); tempCanvas.width = 200; tempCanvas.height = 200;
-                        const tempCtx = tempCanvas.getContext('2d'); tempCtx.imageSmoothingEnabled = false; tempCtx.drawImage(img, 0, 0, 200, 200);
-                        charInfo.url = tempCanvas.toDataURL("image/png"); const newImg = new Image();
-                        newImg.onload = () => {
-                            charInfo.img = newImg; charInfo.actualWidth *= 2; charInfo.actualHeight *= 2;
-                            charInfo.leftPad *= 2; charInfo.rightPad *= 2; charInfo.topPad *= 2; charInfo.bottomPad *= 2; charInfo.minX *= 2; charInfo.minY *= 2;
-                            charInfo.migratedToV23 = true; charDictionary[id] = charInfo; loadedCount++;
-                            if (loadedCount === totalKeys) finalizeLoad();
-                        };
-                        newImg.src = charInfo.url; return; 
-                    }
-                    charInfo.migratedToV23 = true; charDictionary[id] = charInfo; loadedCount++;
-                    if (loadedCount === totalKeys) finalizeLoad();
-                };
-                img.src = data.url;
-            }
-        }
-        window.addEventListener('resize', adjustKeyboardScale); setupPointerSelection();
+        charDictionary = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || {};
+        layouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || { custom1: [[]], custom2: [[]], ...DEFAULT_LAYOUTS };
+        const d = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V32)) || JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V31));
+        if (d) { typedSequence = d.sequence || []; cursorIndex = typedSequence.length; textRenderSize = d.textSize || 50; textDirection = d.direction || 'ltr'; isReadingMode = !!d.readingMode; }
+        finalizeLoad(); window.addEventListener('resize', adjustKeyboardScale); setupPointerSelection();
     };
-
-    function saveDataToStorage() {
-        const dictToSave = {};
-        for (const id in charDictionary) {
-            dictToSave[id] = { 
-                url: charDictionary[id].url, phoneme: charDictionary[id].phoneme, migratedToV23: true,
-                actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, minX: charDictionary[id].minX,
-                actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
-            };
+    function processInput(inputStr) {
+        if (inputStr === 'Backspace') { if (hasSelection()) { saveHistory(); deleteSelection(); renderOutputToCache(); } else { backspace(); } return; }
+        saveHistory(); if (hasSelection()) deleteSelection();
+        if (inputStr === '改行' || inputStr === 'Enter') { typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
+        if (inputStr === '空白' || inputStr === ' ') { typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return; }
+        typedSequence.splice(cursorIndex, 0, inputStr); cursorIndex++;
+        let matchId = null, matchLen = 0;
+        for (let i = 1; i <= Math.min(cursorIndex, 15); i++) {
+            let combined = "";
+            for (let j = cursorIndex - i; j < cursorIndex; j++) { const it = typedSequence[j]; combined += charDictionary[it] ? charDictionary[it].phoneme : it; }
+            for (const id in charDictionary) if (charDictionary[id].phoneme === combined) { matchId = id; matchLen = i; }
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(layouts));
+        if (matchId) { typedSequence.splice(cursorIndex - matchLen, matchLen, matchId); cursorIndex -= (matchLen - 1); }
+        saveDocumentData(); renderOutputToCache();
     }
-
-    const drawCanvas = document.getElementById('drawCanvas'); const dCtx = drawCanvas.getContext('2d'); let isDrawing = false;
-    function setLineWidth(width) { currentLineWidth = parseInt(width); dCtx.lineWidth = currentLineWidth * DPI; }
-    dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth * DPI; dCtx.lineCap = "round";
-
-    function getCanvasPoint(e) { const rect = drawCanvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (drawCanvas.width / rect.width), y: (e.clientY - rect.top) * (drawCanvas.height / rect.height) }; }
-    drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); const pt = getCanvasPoint(e); dCtx.moveTo(pt.x, pt.y); });
-    drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; const pt = getCanvasPoint(e); dCtx.lineTo(pt.x, pt.y); dCtx.stroke(); });
-    window.addEventListener('pointerup', () => { isDrawing = false; });
-    function clearDrawCanvas() { dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); dCtx.lineWidth = currentLineWidth * DPI; currentEditingId = null; document.getElementById('phonemeInput').value = ''; }
-
-    function uploadCharImage(event) {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                clearDrawCanvas(); const scale = Math.min(drawCanvas.width / img.width, drawCanvas.height / img.height);
-                const w = img.width * scale; const h = img.height * scale;
-                const x = (drawCanvas.width - w) / 2; const y = (drawCanvas.height - h) / 2;
-                dCtx.drawImage(img, x, y, w, h);
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file); event.target.value = ''; 
-    }
-
-    function saveCharacter() {
-        const phoneme = document.getElementById('phonemeInput').value.trim();
-        if (!phoneme) { alert("音素を入力してください！"); return; }
-        
-        let existingId = null;
-        for (const id in charDictionary) {
-            if (charDictionary[id].phoneme === phoneme) { existingId = id; break; }
-        }
-
-        let targetId = currentEditingId;
-        let isNew = false;
-
-        if (existingId && existingId !== currentEditingId) {
-            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) return; 
-            targetId = existingId; 
-        } else if (!targetId || !charDictionary[targetId]) {
-            targetId = generateId(); isNew = true;
-        }
-
-        const autoTrim = document.getElementById('autoTrimCheckbox').checked;
-        let bounds = autoTrim ? getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height) : { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
-        
-        const padSize = 2 * DPI; 
-        const leftPad = (bounds.minX === 0) ? 0 : padSize; const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : padSize;
-        const actualWidth = bounds.maxX - bounds.minX + 1;
-        const topPad = (bounds.minY === 0) ? 0 : padSize; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : padSize;
-        const actualHeight = bounds.maxY - bounds.minY + 1;
-        const dataUrl = drawCanvas.toDataURL("image/png");
-
-        const img = new Image();
-        img.onload = () => {
-            charDictionary[targetId] = { 
-                phoneme: phoneme, img: img, url: dataUrl, minX: bounds.minX, minY: bounds.minY,
-                actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, 
-                actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad, migratedToV23: true
-            };
-            
-            if (isNew) {
-                const cPage = 'custom' + customPageNum;
-                if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
-                let targetRow = layouts[cPage][layouts[cPage].length - 1];
-                if (targetRow.length >= 10) layouts[cPage].push([targetId]); else targetRow.push(targetId);
-                
-                let foundInQwerty = false;
-                ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
-                    for (let r = 0; r < 3; r++) { const idx = layouts[page][r].indexOf(phoneme); if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; } }
-                });
-                if (!foundInQwerty) { if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId); }
-            }
-            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            reAnalyzeSequence(); 
-            renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
-        };
-        img.src = dataUrl;
-    }
-
-    function adjustKeyboardScale() {
-        const wrapper = document.getElementById('keyboardWrapper'); if (!wrapper) return;
-        const containerWidth = wrapper.parentElement.clientWidth; const targetWidth = 390; 
-        if (containerWidth < targetWidth) {
-            const scale = containerWidth / targetWidth;
-            wrapper.style.transform = `scale(${scale})`; wrapper.style.width = `${targetWidth}px`; wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
-        } else { wrapper.style.transform = 'none'; wrapper.style.width = 'max-content'; wrapper.style.marginBottom = '0'; }
-    }
-
-    function switchMainLayout(tab) { mainTab = tab; document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab'; document.getElementById('tabQwerty').className = tab === 'qwerty' ? 'tab active' : 'tab'; renderKeyboard(); }
-    function toggleShiftPage() { qwertyPage = (qwertyPage === 'lower') ? 'upper' : 'lower'; renderKeyboard(); }
-    function toggleNumbersPage() { if (qwertyPage === 'numbers' || qwertyPage === 'symbols') qwertyPage = 'lower'; else qwertyPage = 'numbers'; renderKeyboard(); }
-    function toggleEditMode() {
-        isEditMode = !isEditMode; const btn = document.getElementById('editToggleBtn');
-        btn.textContent = isEditMode ? '編集モードOFF' : '編集モードON'; btn.className = isEditMode ? 'btn-danger' : 'btn-warning';
-        document.getElementById('editBanner').style.display = isEditMode ? 'block' : 'none';
-        const wrapper = document.getElementById('keyboardWrapper'); if (isEditMode) wrapper.classList.add('is-editing'); else wrapper.classList.remove('is-editing');
-        renderKeyboard();
-    }
-    function toggleKeyLabelsUI() { const wrapper = document.getElementById('keyboardWrapper'); if (document.getElementById('toggleKeyLabels').checked) wrapper.classList.remove('hide-key-labels'); else wrapper.classList.add('hide-key-labels'); }
-    function toggleReadingUI() { isReadingMode = document.getElementById('toggleReading').checked; saveDocumentData(); renderOutputToCache(); }
-    function changeTextSize() { textRenderSize = parseInt(document.getElementById('textSizeSlider').value, 10); document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; saveDocumentData(); renderOutputToCache(); }
-    function changeTextDirection() { textDirection = document.getElementById('textDirectionSelect').value; saveDocumentData(); renderOutputToCache(); }
-    function createDropSlot(layoutName, rowIndex, slotIndex) {
-        const slot = document.createElement('div'); slot.className = 'drop-slot';
-        slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); }; slot.ondragleave = () => { slot.classList.remove('drag-over'); };
-        slot.ondrop = (e) => { e.preventDefault(); slot.classList.remove('drag-over'); handleInsertDrop(layoutName, rowIndex, slotIndex); };
-        return slot;
-    }
-    function getLayoutArray(layoutName, rowIndex) { return layouts[layoutName][rowIndex]; }
-    function handleInsertDrop(targetLayout, targetRow, targetIndex) {
-        if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0]; 
-        let adjustedTarget = targetIndex; if (dragSource.layout === targetLayout && dragSource.row === targetRow && dragSource.index < targetIndex) adjustedTarget -= 1;
-        const targetArray = getLayoutArray(targetLayout, targetRow); targetArray.splice(adjustedTarget, 0, item);
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
-    }
-    function handleSwapDrop(targetLayout, targetRow, targetIndex) {
-        if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const targetArray = getLayoutArray(targetLayout, targetRow);
-        const sourceItem = sourceArray[dragSource.index]; const targetItem = targetArray[targetIndex];
-        const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
-        if (isBaseUnregistered(targetItem)) { sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem; } 
-        else { const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp; }
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
-    }
-    function handleSystemDrop(targetPage) {
-        if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0];
-        if (targetPage.startsWith('custom')) {
-            if (layouts[targetPage].length === 0) layouts[targetPage].push([]); layouts[targetPage][layouts[targetPage].length - 1].push(item); customPageNum = targetPage === 'custom1' ? 1 : 2;
-        } else { layouts[targetPage][3].push(item); qwertyPage = targetPage; }
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
-    }
-    function setupSystemDropTarget(element, targetPage) {
-        if (!isEditMode) return; element.ondragover = (e) => { e.preventDefault(); element.classList.add('drag-over'); };
-        element.ondragleave = () => { element.classList.remove('drag-over'); }; element.ondrop = (e) => { e.preventDefault(); element.classList.remove('drag-over'); handleSystemDrop(targetPage); };
-    }
-
+    
     function renderKeyboard() {
         const container = document.getElementById('keysContainer'); container.innerHTML = '';
         const sysBtn123 = document.getElementById('sysBtn123');
@@ -745,6 +331,13 @@
                 const rowDiv = document.createElement('div'); rowDiv.className = 'keyboard-container';
                 if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(cPage, rowIndex, 0));
                 rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, cPage, rowIndex, index)); if (isEditMode) rowDiv.appendChild(createDropSlot(cPage, rowIndex, index + 1)); });
+                
+                // ★カスタムレイアウトの各ページの最後の行にBackSpaceを追加
+                if (rowIndex === layouts[cPage].length - 1) {
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; 
+                    bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('⌫'); }; rowDiv.appendChild(bsBtn);
+                }
+
                 if (rowIndex === layouts[cPage].length - 1 && rowArray.length === 0 && isEditMode) {
                     const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (新しい列)';
                     dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
@@ -770,119 +363,156 @@
 
                 if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
                 rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, qwertyPage, rowIndex, index)); if (isEditMode && index === rowArray.length - 1) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1)); });
+                
+                // ★QWERTYレイアウトの3段目の右端にBackSpaceを追加 (iOS風)
+                if (rowIndex === 2) {
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; 
+                    bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('⌫'); }; rowDiv.appendChild(bsBtn);
+                }
+
                 if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
                     const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (4列目)';
                     dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); };
                     rowDiv.appendChild(dropArea);
                 }
-                
+
                 if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
             });
         }
         adjustKeyboardScale();
     }
 
-    function clickVirtualKey(inputVal, displayLabel) { processInput(inputVal); triggerKeyAnimation(displayLabel); }
-
-    function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
-        const isRegistered = !!charDictionary[itemValue];
-        const charData = isRegistered ? charDictionary[itemValue] : null;
-        const displayLabel = isRegistered ? charData.phoneme : itemValue;
-        
-        const btn = document.createElement('div'); btn.className = 'key-btn';
-        if (!isRegistered) btn.classList.add('key-empty');
-        if (isEditMode && isRegistered) {
-            btn.classList.add('key-edit-mode', 'movable'); btn.draggable = true;
-            btn.ondragstart = (e) => { dragSource = { layout: layoutName, row: rowIndex, index: keyIndex, item: itemValue }; e.dataTransfer.effectAllowed = 'move'; };
+    // 残りの関数群
+    function saveDataToStorage() {
+        const dictToSave = {};
+        for (const id in charDictionary) {
+            dictToSave[id] = { url: charDictionary[id].url, phoneme: charDictionary[id].phoneme, migratedToV23: true, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, minX: charDictionary[id].minX, actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY };
         }
-        if (isEditMode) {
-            btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-swap'); }; btn.ondragleave = () => { btn.classList.remove('drag-over-swap'); };
-            btn.ondrop = (e) => { e.preventDefault(); btn.classList.remove('drag-over-swap'); handleSwapDrop(layoutName, rowIndex, keyIndex); };
-        }
-        if (isRegistered) { const imgElement = document.createElement('img'); imgElement.src = charData.url; btn.appendChild(imgElement); }
-        
-        const label = document.createElement('span'); label.className = 'key-label'; label.textContent = displayLabel;
-        if (!isRegistered) label.style.fontSize = '1.2em'; btn.appendChild(label);
+        localStorage.setItem(STORAGE_KEY_DICT_V32, JSON.stringify(dictToSave)); localStorage.setItem(STORAGE_KEY_LAYOUTS_V32, JSON.stringify(layouts));
+    }
 
-        btn.onclick = () => {
-            if (isEditMode && isRegistered) {
-                clearDrawCanvas(); dCtx.drawImage(charData.img, 0, 0); document.getElementById('phonemeInput').value = charData.phoneme; currentEditingId = itemValue; window.scrollTo({ top: 0, behavior: 'smooth' });
-            } else if (!isEditMode) {
-                const inputVal = isRegistered ? itemValue : displayLabel;
-                clickVirtualKey(inputVal, displayLabel);
+    const drawCanvas = document.getElementById('drawCanvas'); const dCtx = drawCanvas.getContext('2d'); let isDrawing = false;
+    function setLineWidth(width) { currentLineWidth = parseInt(width); dCtx.lineWidth = currentLineWidth * DPI; }
+    dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth * DPI; dCtx.lineCap = "round";
+    function getCanvasPoint(e) { const rect = drawCanvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (drawCanvas.width / rect.width), y: (e.clientY - rect.top) * (drawCanvas.height / rect.height) }; }
+    drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); const pt = getCanvasPoint(e); dCtx.moveTo(pt.x, pt.y); });
+    drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; const pt = getCanvasPoint(e); dCtx.lineTo(pt.x, pt.y); dCtx.stroke(); });
+    window.addEventListener('pointerup', () => { isDrawing = false; });
+    function clearDrawCanvas() { dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); dCtx.lineWidth = currentLineWidth * DPI; currentEditingId = null; document.getElementById('phonemeInput').value = ''; }
+
+    function uploadCharImage(event) {
+        const file = event.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => { clearDrawCanvas(); const scale = Math.min(drawCanvas.width / img.width, drawCanvas.height / img.height); const w = img.width * scale; const h = img.height * scale; const x = (drawCanvas.width - w) / 2; const y = (drawCanvas.height - h) / 2; dCtx.drawImage(img, x, y, w, h); };
+            img.src = e.target.result;
+        }; reader.readAsDataURL(file); event.target.value = ''; 
+    }
+
+    function saveCharacter() {
+        const phoneme = document.getElementById('phonemeInput').value.trim();
+        if (!phoneme) { alert("音素を入力してください！"); return; }
+        
+        let existingId = null;
+        for (const id in charDictionary) { if (charDictionary[id].phoneme === phoneme) { existingId = id; break; } }
+
+        let targetId = currentEditingId; let isNew = false;
+        if (existingId && existingId !== currentEditingId) {
+            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) return; 
+            targetId = existingId; 
+        } else if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
+
+        const autoTrim = document.getElementById('autoTrimCheckbox').checked;
+        let bounds = autoTrim ? getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height) : { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
+        
+        const padSize = 2 * DPI; const leftPad = (bounds.minX === 0) ? 0 : padSize; const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : padSize;
+        const actualWidth = bounds.maxX - bounds.minX + 1;
+        const topPad = (bounds.minY === 0) ? 0 : padSize; const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : padSize;
+        const actualHeight = bounds.maxY - bounds.minY + 1;
+        const dataUrl = drawCanvas.toDataURL("image/png");
+
+        const img = new Image();
+        img.onload = () => {
+            charDictionary[targetId] = { phoneme: phoneme, img: img, url: dataUrl, minX: bounds.minX, minY: bounds.minY, actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad, migratedToV23: true };
+            if (isNew) {
+                const cPage = 'custom' + customPageNum;
+                if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
+                let targetRow = layouts[cPage][layouts[cPage].length - 1];
+                if (targetRow.length >= 10) layouts[cPage].push([targetId]); else targetRow.push(targetId);
+                let foundInQwerty = false;
+                ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for (let r = 0; r < 3; r++) { const idx = layouts[page][r].indexOf(phoneme); if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; } } });
+                if (!foundInQwerty) { if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId); }
             }
+            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); reAnalyzeSequence(); renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
         };
+        img.src = dataUrl;
+    }
 
-        if (isEditMode && isRegistered) {
-            const delBadge = document.createElement('div'); delBadge.className = 'action-badge delete-badge'; delBadge.textContent = '×';
-            delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); }; btn.appendChild(delBadge);
-            const dupBadge = document.createElement('div'); dupBadge.className = 'action-badge duplicate-badge'; dupBadge.textContent = '+';
-            dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); }; btn.appendChild(dupBadge);
-        }
+    function adjustKeyboardScale() { const wrapper = document.getElementById('keyboardWrapper'); if (!wrapper) return; const containerWidth = wrapper.parentElement.clientWidth; const targetWidth = 390; if (containerWidth < targetWidth) { const scale = containerWidth / targetWidth; wrapper.style.transform = `scale(${scale})`; wrapper.style.width = `${targetWidth}px`; wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`; } else { wrapper.style.transform = 'none'; wrapper.style.width = 'max-content'; wrapper.style.marginBottom = '0'; } }
+    function switchMainLayout(tab) { mainTab = tab; document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab'; document.getElementById('tabQwerty').className = tab === 'qwerty' ? 'tab active' : 'tab'; renderKeyboard(); }
+    function toggleShiftPage() { qwertyPage = (qwertyPage === 'lower') ? 'upper' : 'lower'; renderKeyboard(); }
+    function toggleNumbersPage() { if (qwertyPage === 'numbers' || qwertyPage === 'symbols') qwertyPage = 'lower'; else qwertyPage = 'numbers'; renderKeyboard(); }
+    function toggleEditMode() { isEditMode = !isEditMode; const btn = document.getElementById('editToggleBtn'); btn.textContent = isEditMode ? '編集モードOFF' : '編集モードON'; btn.className = isEditMode ? 'btn-danger' : 'btn-warning'; document.getElementById('editBanner').style.display = isEditMode ? 'block' : 'none'; const wrapper = document.getElementById('keyboardWrapper'); if (isEditMode) wrapper.classList.add('is-editing'); else wrapper.classList.remove('is-editing'); renderKeyboard(); }
+    function toggleKeyLabelsUI() { const wrapper = document.getElementById('keyboardWrapper'); if (document.getElementById('toggleKeyLabels').checked) wrapper.classList.remove('hide-key-labels'); else wrapper.classList.add('hide-key-labels'); }
+    function toggleReadingUI() { isReadingMode = document.getElementById('toggleReading').checked; saveDocumentData(); renderOutputToCache(); }
+    function changeTextSize() { textRenderSize = parseInt(document.getElementById('textSizeSlider').value, 10); document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; saveDocumentData(); renderOutputToCache(); }
+    function changeTextDirection() { textDirection = document.getElementById('textDirectionSelect').value; saveDocumentData(); renderOutputToCache(); }
+    function createDropSlot(layoutName, rowIndex, slotIndex) { const slot = document.createElement('div'); slot.className = 'drop-slot'; slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); }; slot.ondragleave = () => { slot.classList.remove('drag-over'); }; slot.ondrop = (e) => { e.preventDefault(); slot.classList.remove('drag-over'); handleInsertDrop(layoutName, rowIndex, slotIndex); }; return slot; }
+    function getLayoutArray(layoutName, rowIndex) { return layouts[layoutName][rowIndex]; }
+    function handleInsertDrop(targetLayout, targetRow, targetIndex) { if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0]; let adjustedTarget = targetIndex; if (dragSource.layout === targetLayout && dragSource.row === targetRow && dragSource.index < targetIndex) adjustedTarget -= 1; const targetArray = getLayoutArray(targetLayout, targetRow); targetArray.splice(adjustedTarget, 0, item); cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); }
+    function handleSwapDrop(targetLayout, targetRow, targetIndex) { if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const targetArray = getLayoutArray(targetLayout, targetRow); const sourceItem = sourceArray[dragSource.index]; const targetItem = targetArray[targetIndex]; const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val]; if (isBaseUnregistered(targetItem)) { sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem; } else { const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp; } cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); }
+    function handleSystemDrop(targetPage) { if (!dragSource) return; const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0]; if (targetPage.startsWith('custom')) { if (layouts[targetPage].length === 0) layouts[targetPage].push([]); layouts[targetPage][layouts[targetPage].length - 1].push(item); customPageNum = targetPage === 'custom1' ? 1 : 2; } else { layouts[targetPage][3].push(item); qwertyPage = targetPage; } cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard(); }
+    function setupSystemDropTarget(element, targetPage) { if (!isEditMode) return; element.ondragover = (e) => { e.preventDefault(); element.classList.add('drag-over'); }; element.ondragleave = () => { element.classList.remove('drag-over'); }; element.ondrop = (e) => { e.preventDefault(); element.classList.remove('drag-over'); handleSystemDrop(targetPage); }; }
+    function clickVirtualKey(inputVal, displayLabel) { processInput(inputVal); triggerKeyAnimation(displayLabel); }
+    function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
+        const isRegistered = !!charDictionary[itemValue]; const charData = isRegistered ? charDictionary[itemValue] : null; const displayLabel = isRegistered ? charData.phoneme : itemValue;
+        const btn = document.createElement('div'); btn.className = 'key-btn'; if (!isRegistered) btn.classList.add('key-empty');
+        if (isEditMode && isRegistered) { btn.classList.add('key-edit-mode', 'movable'); btn.draggable = true; btn.ondragstart = (e) => { dragSource = { layout: layoutName, row: rowIndex, index: keyIndex, item: itemValue }; e.dataTransfer.effectAllowed = 'move'; }; }
+        if (isEditMode) { btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-swap'); }; btn.ondragleave = () => { btn.classList.remove('drag-over-swap'); }; btn.ondrop = (e) => { e.preventDefault(); btn.classList.remove('drag-over-swap'); handleSwapDrop(layoutName, rowIndex, keyIndex); }; }
+        if (isRegistered) { const imgElement = document.createElement('img'); imgElement.src = charData.url; btn.appendChild(imgElement); }
+        const label = document.createElement('span'); label.className = 'key-label'; label.textContent = displayLabel; if (!isRegistered) label.style.fontSize = '1.2em'; btn.appendChild(label);
+        btn.onclick = () => { if (isEditMode && isRegistered) { clearDrawCanvas(); dCtx.drawImage(charData.img, 0, 0); document.getElementById('phonemeInput').value = charData.phoneme; currentEditingId = itemValue; window.scrollTo({ top: 0, behavior: 'smooth' }); } else if (!isEditMode) { const inputVal = isRegistered ? itemValue : displayLabel; clickVirtualKey(inputVal, displayLabel); } };
+        if (isEditMode && isRegistered) { const delBadge = document.createElement('div'); delBadge.className = 'action-badge delete-badge'; delBadge.textContent = '×'; delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); }; btn.appendChild(delBadge); const dupBadge = document.createElement('div'); dupBadge.className = 'action-badge duplicate-badge'; dupBadge.textContent = '+'; dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); }; btn.appendChild(dupBadge); }
         return btn;
     }
-
-    function createNewPage() {
-        const canvas = document.createElement('canvas'); canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT;
-        const ctx = canvas.getContext('2d'); ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT); pagesData.push(canvas); return ctx;
-    }
-    function drawHighlight(ctx, x, y, w, h) { ctx.fillStyle = "rgba(0, 122, 255, 0.3)"; ctx.fillRect(x, y, w, h); }
-
-    function renderOutputToCache() {
-        pagesData = []; window.cachedCursorPositions = [];
-        let currentCtx = createNewPage(); let currentPageIndex = 0;
-        
-        const renderHeight = textRenderSize * DPI; const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
-        const scale = renderHeight / 200; cursorHeight = renderHeight;
-
-        let x, y;
-        if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; }
-        else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; }
-        else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
-
-        function newPageLogic() {
-            currentCtx = createNewPage(); currentPageIndex++;
-            if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; }
-            else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; }
-            else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
+    function deleteCharacter(id) {
+        const phonemeStr = charDictionary[id].phoneme;
+        if(confirm(`「${phonemeStr}」を削除しますか？`)) {
+            ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
+            ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
+            typedSequence = typedSequence.map(item => item === id ? phonemeStr : item);
+            undoStack = undoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) })); redoStack = redoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
+            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData(); renderKeyboard(); renderOutputToCache();
         }
-
-        const selMin = hasSelection() ? Math.min(selectionAnchor, cursorIndex) : -1;
-        const selMax = hasSelection() ? Math.max(selectionAnchor, cursorIndex) : -1;
+    }
+    function duplicateCharacter(id, layoutName, rowIndex, keyIndex) { const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] }; layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId); if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); } saveDataToStorage(); renderKeyboard(); }
+    function createNewPage() { const canvas = document.createElement('canvas'); canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT; const ctx = canvas.getContext('2d'); ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT); pagesData.push(canvas); return ctx; }
+    function drawHighlight(ctx, x, y, w, h) { ctx.fillStyle = "rgba(0, 122, 255, 0.3)"; ctx.fillRect(x, y, w, h); }
+    function renderOutputToCache() {
+        pagesData = []; window.cachedCursorPositions = []; let currentCtx = createNewPage(); let currentPageIndex = 0;
+        const renderHeight = textRenderSize * DPI; const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; const scale = renderHeight / 200; cursorHeight = renderHeight;
+        let x, y;
+        if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; } else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; } else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
+        function newPageLogic() { currentCtx = createNewPage(); currentPageIndex++; if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; } else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; } else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; } }
+        const selMin = hasSelection() ? Math.min(selectionAnchor, cursorIndex) : -1; const selMax = hasSelection() ? Math.max(selectionAnchor, cursorIndex) : -1;
 
         for (let i = 0; i < typedSequence.length; i++) {
-            const item = typedSequence[i];
-            const isSelected = (i >= selMin && i < selMax);
-            
-            let thisCursorHeight = renderHeight;
-            if (textDirection === 'ttb' && charDictionary[item]) thisCursorHeight = charDictionary[item].actualHeight * scale;
+            const item = typedSequence[i]; const isSelected = (i >= selMin && i < selMax);
+            let thisCursorHeight = renderHeight; if (textDirection === 'ttb' && charDictionary[item]) thisCursorHeight = charDictionary[item].actualHeight * scale;
             window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: thisCursorHeight, dir: textDirection });
 
             if (item === '改行') { 
-                if (textDirection === 'ltr') {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight);
-                    x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                } else if (textDirection === 'rtl') {
-                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight);
-                    x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                } else {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4);
-                    y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic();
-                }
+                if (textDirection === 'ltr') { if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight); x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); } 
+                else if (textDirection === 'rtl') { if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight); x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); } 
+                else { if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4); y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); }
                 continue; 
             }
             if (item === '空白') { 
-                if (textDirection === 'ltr') {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight);
-                    x += renderHeight * 0.4; if (x > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
-                } else if (textDirection === 'rtl') {
-                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight);
-                    x -= renderHeight * 0.4; if (x < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
-                } else {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4);
-                    y += renderHeight * 0.4; if (y > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); }
-                }
+                if (textDirection === 'ltr') { if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight); x += renderHeight * 0.4; if (x > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); } } 
+                else if (textDirection === 'rtl') { if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight); x -= renderHeight * 0.4; if (x < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); } } 
+                else { if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4); y += renderHeight * 0.4; if (y > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); } }
                 continue; 
             }
 
@@ -890,97 +520,57 @@
             if (charData) {
                 if (textDirection === 'ltr') {
                     const renderWidthActual = charData.actualWidth * scale;
-                    if (x + renderWidthActual > PAGE_WIDTH - MARGIN_X) { 
-                        x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
-                    }
+                    if (x + renderWidthActual > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x, y, renderWidthActual, renderHeight);
                     const sourceX = Math.max(0, charData.minX - charData.leftPad);
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x, y, renderWidthActual, renderHeight);
-                    if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
-                        currentCtx.fillText(charData.phoneme, x + renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI);
-                    }
+                    if (isReadingMode) { currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center"; currentCtx.fillText(charData.phoneme, x + renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI); }
                     x += renderWidthActual; 
-                } 
-                else if (textDirection === 'rtl') {
+                } else if (textDirection === 'rtl') {
                     const renderWidthActual = charData.actualWidth * scale;
-                    if (x - renderWidthActual < MARGIN_X) {
-                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
-                    }
+                    if (x - renderWidthActual < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x - renderWidthActual, y, renderWidthActual, renderHeight);
                     const sourceX = Math.max(0, charData.minX - charData.leftPad);
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x - renderWidthActual, y, renderWidthActual, renderHeight);
-                    if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
-                        currentCtx.fillText(charData.phoneme, x - renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI);
-                    }
+                    if (isReadingMode) { currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center"; currentCtx.fillText(charData.phoneme, x - renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI); }
                     x -= renderWidthActual;
-                }
-                else { 
+                } else { 
                     const renderHeightActual = charData.actualHeight * scale;
-                    if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) {
-                        y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeightActual, dir: textDirection };
-                    }
+                    if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeightActual, dir: textDirection }; }
                     if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeightActual);
                     const sourceY = Math.max(0, charData.minY - charData.topPad);
                     currentCtx.drawImage(charData.img, 0, sourceY, 200, charData.actualHeight, x, y, renderHeight, renderHeightActual);
-                    if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle";
-                        currentCtx.fillText(charData.phoneme, x + renderHeight + 4*DPI, y + renderHeightActual / 2);
-                    }
+                    if (isReadingMode) { currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle"; currentCtx.fillText(charData.phoneme, x + renderHeight + 4*DPI, y + renderHeightActual / 2); }
                     y += renderHeightActual;
                 }
             } else if (typeof item === 'string') {
                 if (item.startsWith('id-') && !charDictionary[item]) continue; 
-
                 currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#bbbbbb"; currentCtx.textBaseline = "middle"; currentCtx.textAlign = "center";
                 const unregWidth = currentCtx.measureText(item).width + (renderHeight * 0.2);
-                
                 if (textDirection === 'ltr') {
                     if (x + unregWidth > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
-                    if(isSelected) drawHighlight(currentCtx, x, y, unregWidth, renderHeight);
-                    currentCtx.fillText(item, x + unregWidth / 2, y + renderHeight / 2); x += unregWidth; 
-                } 
-                else if (textDirection === 'rtl') {
+                    if(isSelected) drawHighlight(currentCtx, x, y, unregWidth, renderHeight); currentCtx.fillText(item, x + unregWidth / 2, y + renderHeight / 2); x += unregWidth; 
+                } else if (textDirection === 'rtl') {
                     if (x - unregWidth < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
-                    if(isSelected) drawHighlight(currentCtx, x - unregWidth, y, unregWidth, renderHeight);
-                    currentCtx.fillText(item, x - unregWidth / 2, y + renderHeight / 2); x -= unregWidth;
-                }
-                else { 
+                    if(isSelected) drawHighlight(currentCtx, x - unregWidth, y, unregWidth, renderHeight); currentCtx.fillText(item, x - unregWidth / 2, y + renderHeight / 2); x -= unregWidth;
+                } else { 
                     if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight);
-                    currentCtx.fillText(item, x + renderHeight / 2, y + renderHeight / 2); y += renderHeight;
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight); currentCtx.fillText(item, x + renderHeight / 2, y + renderHeight / 2); y += renderHeight;
                 }
             }
         }
-        
-        let finalCursorHeight = renderHeight;
-        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: finalCursorHeight, dir: textDirection });
-        
-        if (cursorIndex < 0) cursorIndex = 0;
-        if (cursorIndex > typedSequence.length) cursorIndex = typedSequence.length;
-        
+        let finalCursorHeight = renderHeight; window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: finalCursorHeight, dir: textDirection });
+        if (cursorIndex < 0) cursorIndex = 0; if (cursorIndex > typedSequence.length) cursorIndex = typedSequence.length;
         const currentPos = window.cachedCursorPositions[cursorIndex];
         if (currentPos) { cursorX = currentPos.x; cursorY = currentPos.y; cursorPage = currentPos.page; cursorHeight = currentPos.height; }
-
-        updateOutputDOM();
-        resetCursorBlink();
+        updateOutputDOM(); resetCursorBlink();
     }
-
     function updateOutputDOM() {
         const container = document.getElementById('documentContainer');
-        while(container.children.length < pagesData.length) {
-            const c = document.createElement('canvas'); c.className = 'output-page'; c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c);
-        }
+        while(container.children.length < pagesData.length) { const c = document.createElement('canvas'); c.className = 'output-page'; c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c); }
         while(container.children.length > pagesData.length) container.removeChild(container.lastChild);
-
         for(let i = 0; i < pagesData.length; i++) {
-            const ctx = container.children[i].getContext('2d');
-            ctx.drawImage(pagesData[i], 0, 0);
-
+            const ctx = container.children[i].getContext('2d'); ctx.drawImage(pagesData[i], 0, 0);
             if (isCursorVisible && cursorPage === i) {
                 ctx.beginPath(); ctx.strokeStyle = "#007aff"; ctx.lineWidth = 2 * DPI;
                 if (textDirection === 'ttb') { ctx.moveTo(cursorX + 2*DPI, cursorY); ctx.lineTo(cursorX + (textRenderSize * DPI) - 2*DPI, cursorY); } 
@@ -989,98 +579,50 @@
             }
         }
     }
-
     function getIndexFromEvent(e) {
-        const canvas = e.target.closest('.output-page');
-        if (!canvas || window.cachedCursorPositions.length === 0) return null;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
+        const canvas = e.target.closest('.output-page'); if (!canvas || window.cachedCursorPositions.length === 0) return null;
+        const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
         const clickX = (e.clientX - rect.left) * scaleX; const clickY = (e.clientY - rect.top) * scaleY;
-        const container = document.getElementById('documentContainer');
-        const pageIndex = Array.from(container.children).indexOf(canvas);
+        const container = document.getElementById('documentContainer'); const pageIndex = Array.from(container.children).indexOf(canvas);
         const positionsOnPage = window.cachedCursorPositions.map((pos, index) => ({ ...pos, index })).filter(pos => pos.page === pageIndex);
         if (positionsOnPage.length === 0) return null;
-
         const renderHeight = textRenderSize * DPI;
         if (textDirection === 'ttb') {
             let closestX = positionsOnPage[0].x; let minXDist = Infinity;
-            for (const pos of positionsOnPage) {
-                const dist = Math.abs(clickX - (pos.x + renderHeight / 2)); 
-                if (dist < minXDist) { minXDist = dist; closestX = pos.x; }
-            }
-            const positionsOnLine = positionsOnPage.filter(pos => pos.x === closestX);
-            let closestIndex = positionsOnLine[0].index; let minYDist = Infinity;
-            for (const pos of positionsOnLine) {
-                const dist = Math.abs(clickY - pos.y);
-                if (dist < minYDist) { minYDist = dist; closestIndex = pos.index; }
-            }
+            for (const pos of positionsOnPage) { const dist = Math.abs(clickX - (pos.x + renderHeight / 2)); if (dist < minXDist) { minXDist = dist; closestX = pos.x; } }
+            const positionsOnLine = positionsOnPage.filter(pos => pos.x === closestX); let closestIndex = positionsOnLine[0].index; let minYDist = Infinity;
+            for (const pos of positionsOnLine) { const dist = Math.abs(clickY - pos.y); if (dist < minYDist) { minYDist = dist; closestIndex = pos.index; } }
             return closestIndex;
         } else {
             let closestY = positionsOnPage[0].y; let minYDist = Infinity;
-            for (const pos of positionsOnPage) {
-                const dist = Math.abs(clickY - (pos.y + renderHeight / 2)); 
-                if (dist < minYDist) { minYDist = dist; closestY = pos.y; }
-            }
-            const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY);
-            let closestIndex = positionsOnLine[0].index; let minXDist = Infinity;
-            for (const pos of positionsOnLine) {
-                const dist = Math.abs(clickX - pos.x);
-                if (dist < minXDist) { minXDist = dist; closestIndex = pos.index; }
-            }
+            for (const pos of positionsOnPage) { const dist = Math.abs(clickY - (pos.y + renderHeight / 2)); if (dist < minYDist) { minYDist = dist; closestY = pos.y; } }
+            const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY); let closestIndex = positionsOnLine[0].index; let minXDist = Infinity;
+            for (const pos of positionsOnLine) { const dist = Math.abs(clickX - pos.x); if (dist < minXDist) { minXDist = dist; closestIndex = pos.index; } }
             return closestIndex;
         }
     }
-
     let isTextSelecting = false;
     function setupPointerSelection() {
         const docContainer = document.getElementById('documentContainer');
         docContainer.addEventListener('pointerdown', (e) => {
             const idx = getIndexFromEvent(e);
             if (idx !== null) {
-                if (e.shiftKey) {
-                    if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx;
-                } else {
-                    selectionAnchor = idx; cursorIndex = idx;
-                }
+                if (e.shiftKey) { if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx; } else { selectionAnchor = idx; cursorIndex = idx; }
                 isTextSelecting = true; renderOutputToCache();
             }
         });
-        window.addEventListener('pointermove', (e) => {
-            if (!isTextSelecting) return;
-            const idx = getIndexFromEvent(e);
-            if (idx !== null && idx !== cursorIndex) { cursorIndex = idx; renderOutputToCache(); }
-        });
-        window.addEventListener('pointerup', () => {
-            if (isTextSelecting) {
-                isTextSelecting = false;
-                if (selectionAnchor === cursorIndex) selectionAnchor = null; 
-                renderOutputToCache();
-            }
-        });
+        window.addEventListener('pointermove', (e) => { if (!isTextSelecting) return; const idx = getIndexFromEvent(e); if (idx !== null && idx !== cursorIndex) { cursorIndex = idx; renderOutputToCache(); } });
+        window.addEventListener('pointerup', () => { if (isTextSelecting) { isTextSelecting = false; if (selectionAnchor === cursorIndex) selectionAnchor = null; renderOutputToCache(); } });
     }
-
-    function startCursorBlink() {
-        if (cursorBlinkTimer) clearInterval(cursorBlinkTimer);
-        isCursorVisible = true; updateOutputDOM();
-        cursorBlinkTimer = setInterval(() => { isCursorVisible = !isCursorVisible; updateOutputDOM(); }, 530); 
-    }
-
-    function resetCursorBlink() {
-        isCursorVisible = true; updateOutputDOM();
-        if (cursorBlinkTimer) clearInterval(cursorBlinkTimer);
-        if (typingTimeout) clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => { startCursorBlink(); }, 500);
-    }
-
+    function startCursorBlink() { if (cursorBlinkTimer) clearInterval(cursorBlinkTimer); isCursorVisible = true; updateOutputDOM(); cursorBlinkTimer = setInterval(() => { isCursorVisible = !isCursorVisible; updateOutputDOM(); }, 530); }
+    function resetCursorBlink() { isCursorVisible = true; updateOutputDOM(); if (cursorBlinkTimer) clearInterval(cursorBlinkTimer); if (typingTimeout) clearTimeout(typingTimeout); typingTimeout = setTimeout(() => { startCursorBlink(); }, 500); }
     function showSaveModal(mode) {
         if (pagesData.length === 0) return;
         const container = document.getElementById('downloadLinksContainer'); container.innerHTML = '';
         if (mode === 'combined') {
             const combinedCanvas = document.createElement('canvas'); combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
-            const ctx = combinedCanvas.getContext('2d');
-            pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
-            const img = document.createElement('img'); img.src = combinedCanvas.toDataURL("image/png"); img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
-            container.appendChild(img);
+            const ctx = combinedCanvas.getContext('2d'); pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
+            const img = document.createElement('img'); img.src = combinedCanvas.toDataURL("image/png"); img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px"; container.appendChild(img);
         } else {
             pagesData.forEach((canvas, index) => {
                 const wrapper = document.createElement('div'); wrapper.style.marginBottom = "15px";
@@ -1092,32 +634,21 @@
         document.getElementById('downloadModal').style.display = 'flex';
     }
     function closeDownloadModal() { document.getElementById('downloadModal').style.display = 'none'; }
-
     function handleArrowNavigation(key, shiftKey) {
         if (window.cachedCursorPositions.length === 0) return;
-        if (shiftKey && selectionAnchor === null) selectionAnchor = cursorIndex; 
-        else if (!shiftKey && selectionAnchor !== null) clearSelection(); 
-
-        let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y;
-        if (textDirection === 'ttb') getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
-        
+        if (shiftKey && selectionAnchor === null) selectionAnchor = cursorIndex; else if (!shiftKey && selectionAnchor !== null) clearSelection(); 
+        let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y; if (textDirection === 'ttb') getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
         const linesMap = new Map();
         cachedCursorPositions.forEach((pos, i) => {
-            const lk = getLineKey(pos); const roundKey = Math.round(lk);
-            let foundKey = roundKey;
+            const lk = getLineKey(pos); const roundKey = Math.round(lk); let foundKey = roundKey;
             for (let k of linesMap.keys()) { if (Math.abs(k - roundKey) < 5) { foundKey = k; break; } }
-            if (!linesMap.has(foundKey)) linesMap.set(foundKey, []);
-            linesMap.get(foundKey).push({ ...pos, index: i });
+            if (!linesMap.has(foundKey)) linesMap.set(foundKey, []); linesMap.get(foundKey).push({ ...pos, index: i });
         });
         const sortedLines = Array.from(linesMap.keys()).sort((a, b) => a - b);
-        
         const curr = cachedCursorPositions[cursorIndex]; const currLineKey = getLineKey(curr);
-        let currentLineIdx = sortedLines.findIndex(k => Math.abs(k - Math.round(currLineKey)) < 5);
-        if (currentLineIdx === -1) currentLineIdx = 0; 
-        
+        let currentLineIdx = sortedLines.findIndex(k => Math.abs(k - Math.round(currLineKey)) < 5); if (currentLineIdx === -1) currentLineIdx = 0; 
         function cursorLineMove(targetLineIdx, axis) {
-            if (targetLineIdx < 0) cursorIndex = 0;
-            else if (targetLineIdx >= sortedLines.length) cursorIndex = typedSequence.length;
+            if (targetLineIdx < 0) cursorIndex = 0; else if (targetLineIdx >= sortedLines.length) cursorIndex = typedSequence.length;
             else {
                 const candidates = linesMap.get(sortedLines[targetLineIdx]);
                 let bestIdx = candidates[0].index; let minDiff = Math.abs(candidates[0][axis] - curr[axis]);
@@ -1125,101 +656,30 @@
                 cursorIndex = bestIdx;
             }
         }
-
-        if (textDirection === 'ltr') {
-            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
-            else if (key === 'ArrowLeft') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowRight') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
-        } else if (textDirection === 'rtl') {
-            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
-            else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1);
-        } else if (textDirection === 'ttb') {
-            if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y'); else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y');
-            else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
-        }
+        if (textDirection === 'ltr') { if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x'); else if (key === 'ArrowLeft') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowRight') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); } 
+        else if (textDirection === 'rtl') { if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x'); else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1); } 
+        else if (textDirection === 'ttb') { if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y'); else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y'); else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); }
     }
-
-    function processInput(inputStr) {
-        saveHistory();
-        let deletedSelection = false;
-        if (hasSelection()) {
-            deleteSelection();
-            deletedSelection = true;
-        }
-
-        if (inputStr === 'Backspace') {
-            if (!deletedSelection && cursorIndex > 0) {
-                typedSequence.splice(cursorIndex - 1, 1);
-                cursorIndex--;
-            }
-            saveDocumentData(); renderOutputToCache(); return;
-        }
-
-        if (inputStr === '改行' || inputStr === 'Enter') {
-            typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
-        }
-        if (inputStr === '空白' || inputStr === ' ') {
-            typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
-        }
-
-        typedSequence.splice(cursorIndex, 0, inputStr);
-        cursorIndex++;
-
-        let bestMatchId = null; let bestMatchLength = 0; const limit = Math.min(cursorIndex, 15);
-        for (let i = 1; i <= limit; i++) {
-            let valid = true; let combinedPhoneme = "";
-            for (let j = cursorIndex - i; j < cursorIndex; j++) {
-                const item = typedSequence[j];
-                if (item === '改行' || item === '空白') { valid = false; break; }
-                if (charDictionary[item]) combinedPhoneme += charDictionary[item].phoneme; else combinedPhoneme += item; 
-            }
-            if (!valid) break; 
-            for (const id in charDictionary) { if (charDictionary[id].phoneme === combinedPhoneme) { bestMatchId = id; bestMatchLength = i; } }
-        }
-
-        if (bestMatchId) {
-            typedSequence.splice(cursorIndex - bestMatchLength, bestMatchLength, bestMatchId);
-            cursorIndex -= (bestMatchLength - 1);
-        }
-        saveDocumentData(); renderOutputToCache();
-    }
-
+    function backspace() { saveHistory(); if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } }
     function triggerKeyAnimation(keyStr) {
         let targets = [];
         if (keyStr === 'Backspace' || keyStr === '⌫') { document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); }); } 
         else if (keyStr === 'Enter' || keyStr === '改行') { targets = document.querySelectorAll('.key-return'); } 
         else if (keyStr === ' ' || keyStr === '空白') { targets = document.querySelectorAll('.key-space'); } 
-        else {
-            document.querySelectorAll('.key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); });
-            if (targets.length === 0) { document.querySelectorAll('.key-empty .key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); }
-        }
+        else { document.querySelectorAll('.key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); if (targets.length === 0) { document.querySelectorAll('.key-empty .key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); } }
         targets.forEach(btn => { btn.classList.add('active-anim'); setTimeout(() => { btn.classList.remove('active-anim'); }, 100); });
     }
-
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-        
         if (e.ctrlKey || e.metaKey) {
             const key = e.key.toLowerCase();
-            if (key === 'a') { e.preventDefault(); selectAllText(); } 
-            else if (key === 'c') { e.preventDefault(); copyText(); } 
-            else if (key === 'x') { e.preventDefault(); cutText(); } 
-            else if (key === 'v') { e.preventDefault(); pasteText(); }
-            else if (key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-            return;
+            if (key === 'a') { e.preventDefault(); selectAllText(); } else if (key === 'c') { e.preventDefault(); copyText(); } else if (key === 'x') { e.preventDefault(); cutText(); } else if (key === 'v') { e.preventDefault(); pasteText(); } else if (key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); } return;
         }
         if (e.altKey) return;
-        
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-            e.preventDefault(); handleArrowNavigation(e.key, e.shiftKey); renderOutputToCache(); return;
-        }
-        
-        if (e.key === 'Backspace') { 
-            e.preventDefault(); 
-            processInput('Backspace'); triggerKeyAnimation('⌫'); return; 
-        }
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); handleArrowNavigation(e.key, e.shiftKey); renderOutputToCache(); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); if (hasSelection()) { saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); } else { backspace(); } triggerKeyAnimation('⌫'); return; }
         if (e.key === 'Enter') { e.preventDefault(); processInput('改行'); triggerKeyAnimation('改行'); return; }
         if (e.key === ' ') { e.preventDefault(); processInput('空白'); triggerKeyAnimation('空白'); return; }
-        
         if (e.key.length === 1) { e.preventDefault(); processInput(e.key); triggerKeyAnimation(e.key); }
     });
 </script>
