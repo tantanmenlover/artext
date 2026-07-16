@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (コピペ・コマンド対応版)</title>
+    <title>人工文字作成エディタ (スペース半角化・消去バグ修正版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -115,7 +115,6 @@
         .slider-container input[type="range"] { flex-grow: 1; }
         select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
         
-        /* ★コピーペースト用ツールバー */
         .toolbar {
             display: flex; gap: 5px; background: #e5e5ea; padding: 6px; border-radius: 8px; margin-bottom: 10px; overflow-x: auto;
         }
@@ -124,7 +123,6 @@
         }
         .toolbar button:active { background: #f0f0f0; }
 
-        /* トースト通知 */
         #toast {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px;
@@ -138,7 +136,6 @@
 </head>
 <body>
 
-    <!-- トースト通知用要素 -->
     <div id="toast">コピーしました</div>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
@@ -212,7 +209,6 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         
-        <!-- ★コピペ用ツールバー -->
         <div class="toolbar">
             <button onclick="selectAllText()">全選択 (Ctrl+A)</button>
             <button onclick="copyText()">コピー (Ctrl+C)</button>
@@ -262,9 +258,10 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V26 = 'artificial_text_dict_v26';
-    const STORAGE_KEY_LAYOUTS_V26 = 'artificial_text_layouts_v26';
-    const STORAGE_KEY_DOC_V26 = 'artificial_text_doc_v26';
+    // V28 (スペース半角化・BackSpaceバグ修正版)
+    const STORAGE_KEY_DICT_V28 = 'artificial_text_dict_v28';
+    const STORAGE_KEY_LAYOUTS_V28 = 'artificial_text_layouts_v28';
+    const STORAGE_KEY_DOC_V28 = 'artificial_text_doc_v28';
 
     const DPI = 2;
 
@@ -285,7 +282,7 @@
     let textDirection = 'ltr'; 
 
     let cursorIndex = 0; 
-    let selectionAnchor = null; // ★選択範囲の開始位置（nullなら選択なし）
+    let selectionAnchor = null; 
 
     const PAGE_WIDTH = 600 * DPI;
     const PAGE_HEIGHT = Math.floor(PAGE_WIDTH * 1.414); 
@@ -306,7 +303,6 @@
         symbols: [['[',']','{','}','#','%','^','*','+','='],['_','\\','|','~','<','>','$','£','¥','•'],['.',',','?','!','\''], []]
     };
 
-    // --- 選択・コピペ系ヘルパー関数 ---
     function hasSelection() { return selectionAnchor !== null && selectionAnchor !== cursorIndex; }
     function clearSelection() { selectionAnchor = null; }
     
@@ -318,6 +314,7 @@
         cursorIndex = start;
         clearSelection();
         saveDocumentData();
+        // ここでは直接renderOutputToCacheを呼ばず、呼び出し元の処理に任せる
     }
 
     function sequenceToString(seq) {
@@ -363,9 +360,10 @@
         try {
             const text = await navigator.clipboard.readText();
             if (!text) return;
-            if (hasSelection()) deleteSelection();
+            if (hasSelection()) {
+                deleteSelection();
+            }
             
-            // 1文字ずつ流し込んで合字処理を発動させる
             for (let i = 0; i < text.length; i++) {
                 let char = text[i];
                 if (char === '\n') processInput('改行');
@@ -387,18 +385,28 @@
 
     function saveDocumentData() {
         const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode };
-        localStorage.setItem(STORAGE_KEY_DOC_V26, JSON.stringify(docData));
+        localStorage.setItem(STORAGE_KEY_DOC_V28, JSON.stringify(docData));
     }
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V26);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V26);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V26);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V28);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V28);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V28);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
+        
+        let defaultName = 'artificial_text_data';
+        let fileName = prompt("保存するファイル名を入力してください（拡張子 .json は不要です）", defaultName);
+        if (fileName === null) return; 
+        if (fileName.trim() === '') fileName = defaultName;
+        
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_data.json'; link.click(); URL.revokeObjectURL(url);
+        const link = document.createElement('a'); 
+        link.href = url; 
+        link.download = fileName + '.json'; 
+        link.click(); 
+        URL.revokeObjectURL(url);
     }
 
     function importData(event) {
@@ -408,12 +416,12 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V26, JSON.stringify(importedData.doc));
+                    localStorage.setItem(STORAGE_KEY_DICT_V28, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V28, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V28, JSON.stringify(importedData.doc));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V26)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V26)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V28)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V28)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -424,8 +432,8 @@
                             else targetRow.push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V28, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V28, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -435,7 +443,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V26); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V26); localStorage.removeItem(STORAGE_KEY_DOC_V26); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V28); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V28); localStorage.removeItem(STORAGE_KEY_DOC_V28); location.reload();
         }
     }
 
@@ -444,13 +452,22 @@
     function cleanGhostIds() {
         const isGhost = (val) => typeof val === 'string' && val.startsWith('id-') && !charDictionary[val];
         const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
+        
         ['custom1', 'custom2'].forEach(cPage => {
             if (Array.isArray(layouts[cPage])) {
-                layouts[cPage] = layouts[cPage].map(row => row.filter(v => !isGhost(v) && !isBaseUnregistered(v) && v !== ''));
-                layouts[cPage] = layouts[cPage].filter(row => row.length > 0);
+                let newRows = [];
+                layouts[cPage].forEach(row => {
+                    let validItems = row.filter(v => !isGhost(v) && !isBaseUnregistered(v) && v !== '');
+                    while(validItems.length > 10) {
+                        newRows.push(validItems.splice(0, 10));
+                    }
+                    if (validItems.length > 0) newRows.push(validItems);
+                });
+                layouts[cPage] = newRows.filter(r => r.length > 0);
             }
             if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
         });
+        
         ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
             for(let r = 0; r < 4; r++) {
                 layouts[page][r] = layouts[page][r].filter(v => !isGhost(v) && v !== '');
@@ -502,10 +519,10 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V26)) || JSON.parse(localStorage.getItem('artificial_text_dict_v25')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V26)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v25'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V28)) || JSON.parse(localStorage.getItem('artificial_text_dict_v27')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V28)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v27'));
         
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V26)) || JSON.parse(localStorage.getItem('artificial_text_doc_v25'));
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V28)) || JSON.parse(localStorage.getItem('artificial_text_doc_v27'));
         if (savedDoc) {
             typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
             if (savedDoc.textSize) { textRenderSize = savedDoc.textSize; document.getElementById('textSizeSlider').value = textRenderSize; document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; }
@@ -567,8 +584,8 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V28, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V28, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -822,9 +839,7 @@
         adjustKeyboardScale();
     }
 
-    // ★仮想キーのクリック処理
     function clickVirtualKey(inputVal, displayLabel) {
-        if (hasSelection()) deleteSelection();
         processInput(inputVal);
         triggerKeyAnimation(displayLabel);
     }
@@ -888,7 +903,6 @@
         const ctx = canvas.getContext('2d'); ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT); pagesData.push(canvas); return ctx;
     }
 
-    // ★選択範囲のハイライト描画用
     function drawHighlight(ctx, x, y, w, h) {
         ctx.fillStyle = "rgba(0, 122, 255, 0.3)";
         ctx.fillRect(x, y, w, h);
@@ -946,18 +960,19 @@
                 continue; 
             }
             
+            // ★半角スペース化（0.6 → 0.4に変更）
             if (item === '空白') { 
                 if (textDirection === 'ltr') {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.6, renderHeight);
-                    x += renderHeight * 0.6; 
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight);
+                    x += renderHeight * 0.4; 
                     if (x > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
                 } else if (textDirection === 'rtl') {
-                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.6, y, renderHeight*0.6, renderHeight);
-                    x -= renderHeight * 0.6; 
+                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight);
+                    x -= renderHeight * 0.4; 
                     if (x < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
                 } else {
-                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.6);
-                    y += renderHeight * 0.6;
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4);
+                    y += renderHeight * 0.4;
                     if (y > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); }
                 }
                 continue; 
@@ -1056,7 +1071,6 @@
             const ctx = container.children[i].getContext('2d');
             ctx.drawImage(pagesData[i], 0, 0);
 
-            // 選択中もカーソルは表示する
             if (isCursorVisible && cursorPage === i) {
                 ctx.beginPath(); ctx.strokeStyle = "#007aff"; ctx.lineWidth = 2 * DPI;
                 if (textDirection === 'ttb') { ctx.moveTo(cursorX + 2*DPI, cursorY); ctx.lineTo(cursorX + (textRenderSize * DPI) - 2*DPI, cursorY); } 
@@ -1066,7 +1080,6 @@
         }
     }
 
-    // ★マウスクリック＆ドラッグによる選択処理
     function getIndexFromEvent(e) {
         const canvas = e.target.closest('.output-page');
         if (!canvas || window.cachedCursorPositions.length === 0) return null;
@@ -1108,7 +1121,6 @@
         }
     }
 
-    // ドラッグ選択用イベントリスナー
     let isTextSelecting = false;
     function setupPointerSelection() {
         const docContainer = document.getElementById('documentContainer');
@@ -1119,8 +1131,7 @@
                     if (selectionAnchor === null) selectionAnchor = cursorIndex;
                     cursorIndex = idx;
                 } else {
-                    selectionAnchor = idx;
-                    cursorIndex = idx;
+                    selectionAnchor = idx; cursorIndex = idx;
                 }
                 isTextSelecting = true; renderOutputToCache();
             }
@@ -1133,7 +1144,7 @@
         window.addEventListener('pointerup', () => {
             if (isTextSelecting) {
                 isTextSelecting = false;
-                if (selectionAnchor === cursorIndex) selectionAnchor = null; // ドラッグしなかった場合は選択解除
+                if (selectionAnchor === cursorIndex) selectionAnchor = null; 
                 renderOutputToCache();
             }
         });
@@ -1176,11 +1187,8 @@
     function handleArrowNavigation(key, shiftKey) {
         if (window.cachedCursorPositions.length === 0) return;
         
-        if (shiftKey && selectionAnchor === null) {
-            selectionAnchor = cursorIndex; // 選択開始
-        } else if (!shiftKey && selectionAnchor !== null) {
-            clearSelection(); // 選択解除
-        }
+        if (shiftKey && selectionAnchor === null) selectionAnchor = cursorIndex; 
+        else if (!shiftKey && selectionAnchor !== null) clearSelection(); 
 
         let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y;
         if (textDirection === 'ttb') getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
@@ -1222,8 +1230,16 @@
         }
     }
 
+    // ★入力処理（統合版）
     function processInput(inputStr) {
-        if (inputStr === 'Backspace') { backspace(); return; }
+        if (inputStr === 'Backspace') { 
+            if (hasSelection()) { deleteSelection(); renderOutputToCache(); } 
+            else { backspace(); }
+            return; 
+        }
+
+        if (hasSelection()) deleteSelection();
+
         if (inputStr === '改行' || inputStr === 'Enter') {
             typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
         }
@@ -1253,6 +1269,10 @@
         saveDocumentData(); renderOutputToCache();
     }
 
+    function backspace() { 
+        if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } 
+    }
+    
     function clearOutput() { typedSequence = []; cursorIndex = 0; selectionAnchor = null; saveDocumentData(); renderOutputToCache(); }
 
     function triggerKeyAnimation(keyStr) {
@@ -1267,11 +1287,9 @@
         targets.forEach(btn => { btn.classList.add('active-anim'); setTimeout(() => { btn.classList.remove('active-anim'); }, 100); });
     }
 
-    // ★物理キーボードイベント
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
         
-        // ★コピー・カット・ペーストなどのコマンド処理
         if (e.ctrlKey || e.metaKey) {
             const key = e.key.toLowerCase();
             if (key === 'a') { e.preventDefault(); selectAllText(); } 
@@ -1288,23 +1306,19 @@
         
         if (e.key === 'Backspace') { 
             e.preventDefault(); 
-            if (hasSelection()) deleteSelection(); else backspace(); 
-            triggerKeyAnimation('⌫'); return; 
+            processInput('Backspace'); triggerKeyAnimation('⌫'); return; 
         }
         if (e.key === 'Enter') { 
             e.preventDefault(); 
-            if (hasSelection()) deleteSelection();
             processInput('改行'); triggerKeyAnimation('改行'); return; 
         }
         if (e.key === ' ') { 
             e.preventDefault(); 
-            if (hasSelection()) deleteSelection();
             processInput('空白'); triggerKeyAnimation('空白'); return; 
         }
         
         if (e.key.length === 1) {
             e.preventDefault();
-            if (hasSelection()) deleteSelection();
             processInput(e.key); triggerKeyAnimation(e.key);
         }
     });
