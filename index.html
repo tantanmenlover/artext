@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (重複上書き確認対応版)</title>
+    <title>人工文字作成エディタ</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -11,7 +11,15 @@
         :root { --ios-bg: #d1d5db; --ios-key: #ffffff; --ios-key-shadow: #888a8d; --ios-key-text: #000000; --ios-sys-key: #b4b8c1; }
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; max-width: 800px; margin: auto; background-color: #f4f4f5; overscroll-behavior-y: none; }
-        .section { margin-bottom: 20px; padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        #mainFlexContainer { display: flex; flex-direction: column; gap: 20px; }
+        .section { padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* Flex Order for layout toggle */
+        #section-dict { order: 1; }
+        #section-draw { order: 2; }
+        #section-keyboard { order: 3; }
+        #section-output { order: 4; }
         
         #drawCanvas { width: 100px; height: 100px; border: 1px solid #ccc; background-color: #fff; background-image: linear-gradient(to bottom, transparent 64%, #cce0ff 64%, #cce0ff 66%, transparent 66%); border-radius: 8px; touch-action: none; cursor: crosshair; }
         #documentContainer { background: #9ca3af; padding: 20px; border-radius: 8px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; border: 1px inset #888; position: relative; }
@@ -91,109 +99,127 @@
 
     <div id="toast">操作しました</div>
 
-    <div class="section" style="background: #eef7ff; border-color: #bbddef;">
-        <h3>0. データの共有（エクスポート / インポート）</h3>
-        <p style="font-size: 0.85em; color: #555;">辞書データと<strong style="color: #007aff;">今書いている文章データ</strong>が一緒に保存・復元されます。</p>
-        <div class="controls">
-            <button onclick="exportData()">作成データをダウンロード</button>
-            <br><br>
-            <label for="importFile" style="font-size: 0.9em; font-weight: bold;">データを取り込む:</label>
-            <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+    <div id="mainFlexContainer">
+        <!-- セクション 0 -->
+        <div class="section" id="section-dict" style="background: #eef7ff; border-color: #bbddef;">
+            <h3 style="margin-top: 0;">0. データの共有（エクスポート / インポート）</h3>
+            <p style="font-size: 0.85em; color: #555;">辞書データと<strong style="color: #007aff;">今書いている文章データ</strong>が一緒に保存・復元されます。</p>
+            <div class="controls">
+                <button onclick="exportData()">作成データをダウンロード</button>
+                <br><br>
+                <label for="importFile" style="font-size: 0.9em; font-weight: bold;">データを取り込む:</label>
+                <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+            </div>
+            <div class="controls" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                <button class="btn-danger" onclick="clearAllData()">ブラウザ内の全データリセット</button>
+            </div>
         </div>
-        <div class="controls" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-            <button class="btn-danger" onclick="clearAllData()">ブラウザ内の全データリセット</button>
-        </div>
-    </div>
 
-    <div class="section">
-        <h3>1. 文字をつくる / 編集する</h3>
-        <canvas id="drawCanvas" width="200" height="200"></canvas>
-        <div class="line-width-selector">
-            <span>線の太さ:</span>
-            <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細い</label>
-            <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 普通</label>
-            <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太い</label>
+        <!-- セクション 1 -->
+        <div class="section" id="section-draw">
+            <h3 style="margin-top: 0;">1. 文字をつくる / 編集する</h3>
+            <canvas id="drawCanvas" width="200" height="200"></canvas>
+            <div class="line-width-selector">
+                <span>線の太さ:</span>
+                <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細い</label>
+                <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 普通</label>
+                <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太い</label>
+                
+                <span style="margin-left: 5px; border-left: 1px solid #ccc; padding-left: 10px; display: inline-block;"></span>
+                <label class="toggle-switch" style="font-weight: normal; margin-left: 5px;">
+                    <input type="checkbox" id="autoTrimCheckbox" checked> 空白を自動で詰める
+                </label>
+            </div>
+            <div class="controls">
+                <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
+                <button onclick="saveCharacter()">登録 / 上書き</button>
+                <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す</button>
+                <label class="btn-secondary" style="cursor: pointer; padding: 8px 12px; border-radius: 6px; font-weight: 500; font-size: 0.9em;">
+                    画像から作成
+                    <input type="file" accept="image/*" style="display: none;" onchange="uploadCharImage(event)">
+                </label>
+            </div>
+        </div>
+
+        <!-- セクション 2 -->
+        <div class="section" id="section-keyboard">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                <h3 style="margin: 0;">2. キーボード</h3>
+                <div style="display: flex; gap: 10px; font-size: 0.85em; color: #333; font-weight: bold;">
+                    <label style="cursor: pointer;"><input type="checkbox" id="optKbBottom" onchange="updateLayout()"> 🔽 紙面の下に配置</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="optKbHide" onchange="updateLayout()"> 👁️ 隠す</label>
+                </div>
+            </div>
             
-            <span style="margin-left: 5px; border-left: 1px solid #ccc; padding-left: 10px; display: inline-block;"></span>
-            <label class="toggle-switch" style="font-weight: normal; margin-left: 5px;">
-                <input type="checkbox" id="autoTrimCheckbox" checked> 空白を自動で詰める
-            </label>
+            <div id="keyboardContentWrapper">
+                <p style="font-size: 0.85em; color: #555; margin-top: 0; margin-bottom: 10px;">※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。</p>
+                <div class="tabs" id="kbTabs" style="justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 10px;">
+                        <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
+                        <div id="tabQwerty" class="tab active" onclick="switchMainLayout('qwerty')">システム</div>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <label class="toggle-switch"><input type="checkbox" id="toggleKeyLabels" checked onchange="toggleKeyLabelsUI()"> 音素表示</label>
+                        <button id="editToggleBtn" class="btn-warning" onclick="toggleEditMode()">編集モードON</button>
+                    </div>
+                </div>
+                
+                <div id="editBanner">[編集] 長押しでドラッグ移動・交換が可能。システムキーに落とすとページ移動します。</div>
+
+                <div class="keyboard-wrapper" id="keyboardWrapper">
+                    <div id="keysContainer" style="width: 100%;"></div>
+                    <!-- 全キーボード共通のシステム列 (Backspaceを標準搭載) -->
+                    <div class="system-row">
+                        <div id="sysBtn123" class="key-btn key-system sys-drop-target" style="min-width: 42px;" onclick="toggleNumbersPage()">123</div>
+                        <div class="key-btn key-space" onclick="clickVirtualKey('空白', '空白')">空白</div>
+                        <div class="key-btn key-system" style="font-size: 20px; min-width: 42px;" onclick="clickVirtualKey('Backspace', '⌫')">⌫</div>
+                        <div class="key-btn key-return" onclick="clickVirtualKey('改行', '改行')">改行</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="controls">
-            <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
-            <button onclick="saveCharacter()">登録 / 上書き</button>
-            <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す</button>
-            <label class="btn-secondary" style="cursor: pointer; padding: 8px 12px; border-radius: 6px; font-weight: 500; font-size: 0.9em;">
-                画像から作成
-                <input type="file" accept="image/*" style="display: none;" onchange="uploadCharImage(event)">
-            </label>
+
+        <!-- セクション 3 -->
+        <div class="section" id="section-output">
+            <h3 style="margin-top: 0;">3. 完成した文章</h3>
+            <div class="toolbar">
+                <button onclick="undo()" id="btnUndo" disabled>Undo</button>
+                <button onclick="redo()" id="btnRedo" disabled>Redo</button>
+                <button onclick="selectAllText()">全選択</button>
+                <button onclick="copyText()">コピー</button>
+                <button onclick="cutText()">カット</button>
+                <button onclick="pasteText()">ペースト</button>
+                <button class="btn-danger" style="margin-left: auto; border:none; background:#ff3b30; color:white;" onclick="clearOutputWithHistory()">全消去</button>
+            </div>
+
+            <div class="slider-container">
+                <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">文字サイズ:</span>
+                <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
+                <span id="textSizeLabel" style="font-size: 0.9em; width: 40px; text-align: right;">50px</span>
+            </div>
+            
+            <div class="slider-container" style="margin-bottom: 15px;">
+                <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">書字方向:</span>
+                <select id="textDirectionSelect" onchange="changeTextDirection()" style="flex-grow: 1;">
+                    <option value="ltr">左から右 (横書き)</option>
+                    <option value="rtl">右から左 (横書き)</option>
+                    <option value="ttb">上から下 (縦書き)</option>
+                </select>
+                <label class="toggle-switch" style="margin-left: 10px;">
+                    <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)
+                </label>
+            </div>
+
+            <div id="documentContainer"></div>
+            
+            <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="showSaveModal('combined')" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
+                <button onclick="showSaveModal('individual')" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
+            </div>
         </div>
     </div>
 
-    <div class="section">
-        <h3>2. キーボード</h3>
-        <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。</p>
-        <div class="tabs" style="justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 10px;">
-                <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
-                <div id="tabQwerty" class="tab active" onclick="switchMainLayout('qwerty')">システム</div>
-            </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <label class="toggle-switch"><input type="checkbox" id="toggleKeyLabels" checked onchange="toggleKeyLabelsUI()"> 音素表示</label>
-                <button id="editToggleBtn" class="btn-warning" onclick="toggleEditMode()">編集モードON</button>
-            </div>
-        </div>
-        
-        <div id="editBanner">[編集] 長押しでドラッグ移動・交換が可能。システムキーに落とすとページ移動します。</div>
-
-        <div class="keyboard-wrapper" id="keyboardWrapper">
-            <div id="keysContainer" style="width: 100%;"></div>
-            <div class="system-row">
-                <div id="sysBtn123" class="key-btn key-system sys-drop-target" style="min-width: 42px;" onclick="toggleNumbersPage()">123</div>
-                <div class="key-btn key-space" onclick="clickVirtualKey('空白', '空白')">空白</div>
-                <div class="key-btn key-return" onclick="clickVirtualKey('改行', '改行')">改行</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h3>3. 完成した文章</h3>
-        <div class="toolbar">
-            <button onclick="undo()" id="btnUndo" disabled>↩️ 取消</button>
-            <button onclick="redo()" id="btnRedo" disabled>↪️ やり直し</button>
-            <button onclick="selectAllText()">全選択</button>
-            <button onclick="copyText()">コピー</button>
-            <button onclick="cutText()">カット</button>
-            <button onclick="pasteText()">ペースト</button>
-            <button class="btn-danger" style="margin-left: auto; border:none; background:#ff3b30; color:white;" onclick="clearOutputWithHistory()">全消去</button>
-        </div>
-
-        <div class="slider-container">
-            <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">文字サイズ:</span>
-            <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
-            <span id="textSizeLabel" style="font-size: 0.9em; width: 40px; text-align: right;">50px</span>
-        </div>
-        
-        <div class="slider-container" style="margin-bottom: 15px;">
-            <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">書字方向:</span>
-            <select id="textDirectionSelect" onchange="changeTextDirection()" style="flex-grow: 1;">
-                <option value="ltr">左から右 (横書き)</option>
-                <option value="rtl">右から左 (横書き)</option>
-                <option value="ttb">上から下 (縦書き)</option>
-            </select>
-            <label class="toggle-switch" style="margin-left: 10px;">
-                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)
-            </label>
-        </div>
-
-        <div id="documentContainer"></div>
-        
-        <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
-            <button onclick="showSaveModal('combined')" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
-            <button onclick="showSaveModal('individual')" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
-        </div>
-    </div>
-
+    <!-- 保存モーダル -->
     <div id="downloadModal">
         <div id="downloadModalContent">
             <h3 style="margin-top: 0; color: #333;">画像の保存</h3>
@@ -204,9 +230,9 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V30 = 'artificial_text_dict_v30';
-    const STORAGE_KEY_LAYOUTS_V30 = 'artificial_text_layouts_v30';
-    const STORAGE_KEY_DOC_V30 = 'artificial_text_doc_v30';
+    const STORAGE_KEY_DICT_V31 = 'artificial_text_dict_v31';
+    const STORAGE_KEY_LAYOUTS_V31 = 'artificial_text_layouts_v31';
+    const STORAGE_KEY_DOC_V31 = 'artificial_text_doc_v31';
 
     const DPI = 2;
     let charDictionary = {}; 
@@ -238,6 +264,21 @@
         symbols: [['[',']','{','}','#','%','^','*','+','='],['_','\\','|','~','<','>','$','£','¥','•'],['.',',','?','!','\''], []]
     };
 
+    // --- レイアウト変更ロジック ---
+    function updateLayout() {
+        const kbSec = document.getElementById('section-keyboard');
+        const outSec = document.getElementById('section-output');
+        const isBottom = document.getElementById('optKbBottom').checked;
+        const isHide = document.getElementById('optKbHide').checked;
+
+        kbSec.style.order = isBottom ? "4" : "3";
+        outSec.style.order = isBottom ? "3" : "4";
+
+        const kbContent = document.getElementById('keyboardContentWrapper');
+        kbContent.style.display = isHide ? 'none' : 'block';
+    }
+
+    // --- 履歴管理 ---
     function updateUndoRedoUI() {
         document.getElementById('btnUndo').disabled = undoStack.length === 0;
         document.getElementById('btnRedo').disabled = redoStack.length === 0;
@@ -366,13 +407,13 @@
 
     function saveDocumentData() {
         const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode };
-        localStorage.setItem(STORAGE_KEY_DOC_V30, JSON.stringify(docData));
+        localStorage.setItem(STORAGE_KEY_DOC_V31, JSON.stringify(docData));
     }
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V30);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V30);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V30);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V31);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V31);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V31);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         
         let defaultName = 'artificial_text_data';
@@ -393,12 +434,12 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V30, JSON.stringify(importedData.doc));
+                    localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V31, JSON.stringify(importedData.doc));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V30)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V30)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -408,8 +449,8 @@
                             if (targetRow.length >= 10) currentLayouts.custom1.push([newId]); else targetRow.push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -419,7 +460,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V30); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V30); localStorage.removeItem(STORAGE_KEY_DOC_V30); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V31); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V31); localStorage.removeItem(STORAGE_KEY_DOC_V31); location.reload();
         }
     }
 
@@ -486,9 +527,9 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V30)) || JSON.parse(localStorage.getItem('artificial_text_dict_v29')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V30)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v29'));
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V30)) || JSON.parse(localStorage.getItem('artificial_text_doc_v29'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V31)) || JSON.parse(localStorage.getItem('artificial_text_dict_v30')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V31)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v30'));
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V31)) || JSON.parse(localStorage.getItem('artificial_text_doc_v30'));
         
         if (savedDoc) {
             typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
@@ -542,8 +583,8 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V31, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V31, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas'); const dCtx = drawCanvas.getContext('2d'); let isDrawing = false;
@@ -575,28 +616,20 @@
     function saveCharacter() {
         const phoneme = document.getElementById('phonemeInput').value.trim();
         if (!phoneme) { alert("音素を入力してください！"); return; }
-
-        // ★追加: 既存の音素かどうかチェック
+        
         let existingId = null;
         for (const id in charDictionary) {
-            if (charDictionary[id].phoneme === phoneme) {
-                existingId = id;
-                break;
-            }
+            if (charDictionary[id].phoneme === phoneme) { existingId = id; break; }
         }
 
         let targetId = currentEditingId;
         let isNew = false;
 
-        // ★追加: すでに同じ音素が存在し、現在編集中の文字ではない場合は上書き確認をする
         if (existingId && existingId !== currentEditingId) {
-            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) {
-                return; // キャンセルされたら保存中断
-            }
-            targetId = existingId; // 既存の枠を上書きするようターゲットを変更
+            if (!confirm(`音素「${phoneme}」はすでに登録されています。上書きしてよろしいですか？`)) return; 
+            targetId = existingId; 
         } else if (!targetId || !charDictionary[targetId]) {
-            targetId = generateId(); 
-            isNew = true;
+            targetId = generateId(); isNew = true;
         }
 
         const autoTrim = document.getElementById('autoTrimCheckbox').checked;
@@ -630,7 +663,7 @@
                 if (!foundInQwerty) { if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId); }
             }
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            reAnalyzeSequence(); // ★未確定文字の再解析で自動置き換え
+            reAnalyzeSequence(); 
             renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
         };
         img.src = dataUrl;
@@ -743,10 +776,7 @@
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); };
                     rowDiv.appendChild(dropArea);
                 }
-                if (rowIndex === 2) {
-                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; 
-                    bsBtn.onclick = () => { processInput('Backspace'); triggerKeyAnimation('⌫'); }; rowDiv.appendChild(bsBtn);
-                }
+                
                 if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
             });
         }
@@ -791,27 +821,6 @@
             dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); }; btn.appendChild(dupBadge);
         }
         return btn;
-    }
-
-    function deleteCharacter(id) {
-        const phonemeStr = charDictionary[id].phoneme;
-        if(confirm(`「${phonemeStr}」を削除しますか？`)) {
-            ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
-            ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
-            
-            typedSequence = typedSequence.map(item => item === id ? phonemeStr : item);
-            undoStack = undoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
-            redoStack = redoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
-
-            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData();
-            renderKeyboard(); renderOutputToCache();
-        }
-    }
-    function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
-        const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
-        layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
-        if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
-        saveDataToStorage(); renderKeyboard();
     }
 
     function createNewPage() {
@@ -1131,7 +1140,19 @@
 
     function processInput(inputStr) {
         saveHistory();
-        if (hasSelection()) deleteSelection();
+        let deletedSelection = false;
+        if (hasSelection()) {
+            deleteSelection();
+            deletedSelection = true;
+        }
+
+        if (inputStr === 'Backspace') {
+            if (!deletedSelection && cursorIndex > 0) {
+                typedSequence.splice(cursorIndex - 1, 1);
+                cursorIndex--;
+            }
+            saveDocumentData(); renderOutputToCache(); return;
+        }
 
         if (inputStr === '改行' || inputStr === 'Enter') {
             typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
@@ -1160,11 +1181,6 @@
             cursorIndex -= (bestMatchLength - 1);
         }
         saveDocumentData(); renderOutputToCache();
-    }
-
-    function backspace() { 
-        saveHistory();
-        if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } 
     }
 
     function triggerKeyAnimation(keyStr) {
@@ -1199,8 +1215,7 @@
         
         if (e.key === 'Backspace') { 
             e.preventDefault(); 
-            if (hasSelection()) { saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); } else { backspace(); }
-            triggerKeyAnimation('⌫'); return; 
+            processInput('Backspace'); triggerKeyAnimation('⌫'); return; 
         }
         if (e.key === 'Enter') { e.preventDefault(); processInput('改行'); triggerKeyAnimation('改行'); return; }
         if (e.key === ' ') { e.preventDefault(); processInput('空白'); triggerKeyAnimation('空白'); return; }
