@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (文字消去バグ完全修正版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -204,9 +204,9 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V29 = 'artificial_text_dict_v29';
-    const STORAGE_KEY_LAYOUTS_V29 = 'artificial_text_layouts_v29';
-    const STORAGE_KEY_DOC_V29 = 'artificial_text_doc_v29';
+    const STORAGE_KEY_DICT_V30 = 'artificial_text_dict_v30';
+    const STORAGE_KEY_LAYOUTS_V30 = 'artificial_text_layouts_v30';
+    const STORAGE_KEY_DOC_V30 = 'artificial_text_doc_v30';
 
     const DPI = 2;
     let charDictionary = {}; 
@@ -269,7 +269,7 @@
         }
     }
 
-    // --- 未登録文字の再解析（動的アップデート） ---
+    // --- 文字の再解析 ---
     function reAnalyzeSequence() {
         let rawStr = sequenceToString(typedSequence);
         let newSeq = [];
@@ -289,7 +289,7 @@
             else { newSeq.push(rawStr[i]); i++; }
         }
         typedSequence = newSeq;
-        cursorIndex = typedSequence.length; // 更新後は安全のため末尾へ
+        cursorIndex = typedSequence.length;
         clearSelection(); saveDocumentData(); renderOutputToCache();
     }
 
@@ -306,8 +306,10 @@
 
     function sequenceToString(seq) {
         return seq.map(item => {
-            if (item === '改行') return '\n'; if (item === '空白') return ' ';
+            if (item === '改行') return '\n'; 
+            if (item === '空白') return ' ';
             if (charDictionary[item]) return charDictionary[item].phoneme;
+            if (typeof item === 'string' && item.startsWith('id-')) return ''; // バグで残った無効IDは無視
             return item;
         }).join('');
     }
@@ -367,13 +369,13 @@
 
     function saveDocumentData() {
         const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode };
-        localStorage.setItem(STORAGE_KEY_DOC_V29, JSON.stringify(docData));
+        localStorage.setItem(STORAGE_KEY_DOC_V30, JSON.stringify(docData));
     }
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V29);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V29);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V29);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V30);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V30);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V30);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         
         let defaultName = 'artificial_text_data';
@@ -394,12 +396,12 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V29, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V29, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V29, JSON.stringify(importedData.doc));
+                    localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V30, JSON.stringify(importedData.doc));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V29)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V29)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V30)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V30)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -409,8 +411,8 @@
                             if (targetRow.length >= 10) currentLayouts.custom1.push([newId]); else targetRow.push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V29, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V29, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -420,7 +422,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V29); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V29); localStorage.removeItem(STORAGE_KEY_DOC_V29); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V30); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V30); localStorage.removeItem(STORAGE_KEY_DOC_V30); location.reload();
         }
     }
 
@@ -487,9 +489,9 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V29)) || JSON.parse(localStorage.getItem('artificial_text_dict_v28')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V29)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v28'));
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V29)) || JSON.parse(localStorage.getItem('artificial_text_doc_v28'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V30)) || JSON.parse(localStorage.getItem('artificial_text_dict_v29')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V30)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v29'));
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V30)) || JSON.parse(localStorage.getItem('artificial_text_doc_v29'));
         
         if (savedDoc) {
             typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
@@ -543,8 +545,8 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V29, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V29, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V30, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V30, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas'); const dCtx = drawCanvas.getContext('2d'); let isDrawing = false;
@@ -609,7 +611,7 @@
                 if (!foundInQwerty) { if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId); }
             }
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            reAnalyzeSequence(); // ★未確定文字の再解析
+            reAnalyzeSequence(); // ★未確定文字の再解析で自動置き換え
             renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
         };
         img.src = dataUrl;
@@ -713,6 +715,7 @@
                     else { shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower'); }
                     rowDiv.appendChild(shiftBtn);
                 }
+
                 if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
                 rowArray.forEach((item, index) => { rowDiv.appendChild(createKeyElement(item, qwertyPage, rowIndex, index)); if (isEditMode && index === rowArray.length - 1) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1)); });
                 if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
@@ -731,9 +734,7 @@
         adjustKeyboardScale();
     }
 
-    function clickVirtualKey(inputVal, displayLabel) {
-        processInput(inputVal); triggerKeyAnimation(displayLabel);
-    }
+    function clickVirtualKey(inputVal, displayLabel) { processInput(inputVal); triggerKeyAnimation(displayLabel); }
 
     function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
         const isRegistered = !!charDictionary[itemValue];
@@ -763,6 +764,7 @@
                 clickVirtualKey(inputVal, displayLabel);
             }
         };
+
         if (isEditMode && isRegistered) {
             const delBadge = document.createElement('div'); delBadge.className = 'action-badge delete-badge'; delBadge.textContent = '×';
             delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); }; btn.appendChild(delBadge);
@@ -772,14 +774,26 @@
         return btn;
     }
 
+    // ★削除バグ完全修正
     function deleteCharacter(id) {
         const phonemeStr = charDictionary[id].phoneme;
         if(confirm(`「${phonemeStr}」を削除しますか？`)) {
             ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
             ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
-            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
+            
+            // ★文書上の該当IDを未確定の音素（グレー文字）に戻す
+            typedSequence = typedSequence.map(item => item === id ? phonemeStr : item);
+            
+            // ★履歴内のIDも音素に戻す
+            undoStack = undoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
+            redoStack = redoStack.map(state => ({ ...state, seq: state.seq.map(item => item === id ? phonemeStr : item) }));
+
+            delete charDictionary[id]; 
+            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); saveDocumentData();
+            renderKeyboard(); renderOutputToCache();
         }
     }
+    
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
         const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
@@ -898,6 +912,9 @@
                     y += renderHeightActual;
                 }
             } else if (typeof item === 'string') {
+                // ★バグ対策: 無効なID（id-xxx...）は表示しない
+                if (item.startsWith('id-') && !charDictionary[item]) continue;
+
                 currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#bbbbbb"; currentCtx.textBaseline = "middle"; currentCtx.textAlign = "center";
                 const unregWidth = currentCtx.measureText(item).width + (renderHeight * 0.2);
                 
@@ -999,11 +1016,8 @@
         docContainer.addEventListener('pointerdown', (e) => {
             const idx = getIndexFromEvent(e);
             if (idx !== null) {
-                if (e.shiftKey) {
-                    if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx;
-                } else {
-                    selectionAnchor = idx; cursorIndex = idx;
-                }
+                if (e.shiftKey) { if (selectionAnchor === null) selectionAnchor = cursorIndex; cursorIndex = idx; } 
+                else { selectionAnchor = idx; cursorIndex = idx; }
                 isTextSelecting = true; renderOutputToCache();
             }
         });
@@ -1173,16 +1187,10 @@
             if (hasSelection()) { saveHistory(); deleteSelection(); saveDocumentData(); renderOutputToCache(); } else { backspace(); }
             triggerKeyAnimation('⌫'); return; 
         }
-        if (e.key === 'Enter') { 
-            e.preventDefault(); processInput('改行'); triggerKeyAnimation('改行'); return; 
-        }
-        if (e.key === ' ') { 
-            e.preventDefault(); processInput('空白'); triggerKeyAnimation('空白'); return; 
-        }
+        if (e.key === 'Enter') { e.preventDefault(); processInput('改行'); triggerKeyAnimation('改行'); return; }
+        if (e.key === ' ') { e.preventDefault(); processInput('空白'); triggerKeyAnimation('空白'); return; }
         
-        if (e.key.length === 1) {
-            e.preventDefault(); processInput(e.key); triggerKeyAnimation(e.key);
-        }
+        if (e.key.length === 1) { e.preventDefault(); processInput(e.key); triggerKeyAnimation(e.key); }
     });
 </script>
 </body>
