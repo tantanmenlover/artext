@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (スマホ・レスポンシブ対応版)</title>
+    <title>人工文字作成エディタ (スマホ操作最適化版)</title>
     
     <!-- スマホでドラッグ&ドロップを機能させるための外部ライブラリ -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
     <script>
-        // スマホ用ドラッグ＆ドロップの有効化
-        MobileDragDrop.polyfill({ holdToDrag: 100 }); // 誤操作防止のため、0.1秒長押しでドラッグ開始
+        // スマホ用ドラッグ＆ドロップの有効化（0.15秒の長押しでドラッグ開始）
+        MobileDragDrop.polyfill({ holdToDrag: 150 });
         window.addEventListener('touchmove', function() {}, {passive: false});
     </script>
 
@@ -23,21 +23,16 @@
             --ios-sys-key: #b4b8c1;
         }
         
-        /* スマホ向けの基本リセット */
-        * {
-            -webkit-tap-highlight-color: transparent; /* タップ時の青い点滅を消す */
-            box-sizing: border-box;
-        }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             padding: 15px; max-width: 800px; margin: auto; background-color: #f4f4f5; 
-            overscroll-behavior-y: none; /* スワイプダウンでのリロードを防止 */
+            overscroll-behavior-y: none;
         }
         
         .section { margin-bottom: 20px; padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
-        /* キャンバスのスマホ対応 */
         #drawCanvas { 
             border: 1px solid #ccc; background-color: #fff; 
             background-image: linear-gradient(to bottom, transparent 64%, #cce0ff 64%, #cce0ff 66%, transparent 66%);
@@ -45,16 +40,14 @@
         }
         #outputCanvas { 
             border: 1px solid #ccc; background: #fff; border-radius: 8px; 
-            width: 100%; max-width: 600px; height: auto; /* 画面幅に合わせて自動縮小 */
+            width: 100%; max-width: 600px; height: auto;
         }
         
-        /* キーボード全体（はみ出し防止と自動スケール用） */
         .keyboard-wrapper { 
             background: var(--ios-bg); padding: 10px; border-radius: 12px; 
             margin-top: 10px; transition: background 0.3s;
             display: flex; flex-direction: column; align-items: center; 
-            margin-left: auto; margin-right: auto;
-            transform-origin: top center;
+            margin-left: auto; margin-right: auto; transform-origin: top center;
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
         
@@ -85,11 +78,14 @@
         .key-return { min-width: 65px; background: var(--ios-sys-key); font-size: 14px; font-weight: 500; }
         .sys-drop-target.drag-over { background: #007aff !important; color: white !important; }
         
-        .key-edit-mode.movable { cursor: grab; animation: jiggle 0.3s infinite alternate; }
+        /* ★ドラッグ操作を安定させるためのタッチアクション制限 */
+        .key-edit-mode.movable { 
+            cursor: grab; animation: jiggle 0.3s infinite alternate; 
+            touch-action: none !important; -webkit-touch-callout: none;
+        }
         .key-edit-mode.movable:active { cursor: grabbing; }
         .key-btn.drag-over-swap { border: 2px solid #007aff; transform: scale(1.1); z-index: 10; background: #e5f0ff; }
         
-        /* 削除・複製バッジをスマホで押しやすいサイズ(22px)に拡大 */
         .action-badge {
             position: absolute; top: -8px; width: 22px; height: 22px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
@@ -122,7 +118,7 @@
         .btn-secondary { background: #e5e5ea; color: #007aff; }
         .btn-danger { background: #ffcccc; border: 1px solid #ff9999; color: #cc0000; }
         .btn-warning { background: #ff9500; }
-        input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 120px; font-size: 16px; /* iOS自動ズーム防止 */ }
+        input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 120px; font-size: 16px; }
         input[type="file"] { padding: 8px; font-size: 0.9em; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -158,7 +154,7 @@
         <div class="controls">
             <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
             <button onclick="saveCharacter()">登録 / 上書き</button>
-            <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す</button>
+            <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す (クリア)</button>
         </div>
     </div>
 
@@ -173,7 +169,7 @@
         </div>
         
         <div id="editBanner">
-            [編集] 長押しでドラッグ移動・文字の上に落とすと交換できます。<br>※システムキー(↑、123、ページ2)の上に落とすとページ間移動します。
+            [編集] 長押しでドラッグ移動・文字の上に落とすと交換できます。<br>※システムキーの上に落とすとページ間移動します。
         </div>
 
         <div class="keyboard-wrapper" id="keyboardWrapper">
@@ -215,7 +211,7 @@
     const oCtx = outputCanvas.getContext('2d');
     const offscreenCanvas = document.createElement('canvas');
     const offCtx = offscreenCanvas.getContext('2d');
-    offscreenCanvas.width = 600;  // 内部解像度を固定（CSSで縮小表示）
+    offscreenCanvas.width = 600;
     offscreenCanvas.height = 300;
 
     let cursorX = 10; let cursorY = 10; let cursorHeight = 50;
@@ -245,7 +241,6 @@
         ]
     };
 
-    // --- 0. データ共有 ---
     function exportData() {
         const dictData = localStorage.getItem(STORAGE_KEY_DICT_V13);
         const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V13);
@@ -291,7 +286,6 @@
         }
     }
 
-    // --- ID処理とユーティリティ ---
     function generateId() { return 'id-' + Date.now() + '-' + Math.floor(Math.random() * 1000); }
 
     function cleanGhostIds() {
@@ -337,8 +331,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || JSON.parse(localStorage.getItem('artificial_text_dict_v12')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v12'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -369,7 +363,6 @@
             img.src = data.url;
         }
         
-        // 画面リサイズ時にキーボードの幅をスマホ用に調整するイベント
         window.addEventListener('resize', adjustKeyboardScale);
     };
 
@@ -382,13 +375,11 @@
         localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(layouts));
     }
 
-    // --- 1. お絵かき・登録 ---
     const drawCanvas = document.getElementById('drawCanvas');
     const dCtx = drawCanvas.getContext('2d');
     let isDrawing = false;
     dCtx.strokeStyle = "black"; dCtx.lineWidth = 4; dCtx.lineCap = "round";
 
-    // Pointer events works for both mouse and touch, touch-action:none prevents scroll
     drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); dCtx.moveTo(e.offsetX, e.offsetY); });
     drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; dCtx.lineTo(e.offsetX, e.offsetY); dCtx.stroke(); });
     window.addEventListener('pointerup', () => { isDrawing = false; });
@@ -454,19 +445,16 @@
         img.src = dataUrl;
     }
 
-    // --- 2. スマホ用自動スケール調整 ---
     function adjustKeyboardScale() {
         const wrapper = document.getElementById('keyboardWrapper');
         if (!wrapper) return;
         const containerWidth = wrapper.parentElement.clientWidth;
-        // QWERTYの理想的な横幅は約390px
         const targetWidth = 390; 
         
         if (containerWidth < targetWidth) {
             const scale = containerWidth / targetWidth;
             wrapper.style.transform = `scale(${scale})`;
             wrapper.style.width = `${targetWidth}px`;
-            // 縮小した分の余白を詰める
             wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
         } else {
             wrapper.style.transform = 'none';
@@ -475,7 +463,6 @@
         }
     }
 
-    // --- UI切替 ---
     function switchMainLayout(tab) {
         mainTab = tab;
         document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
@@ -503,7 +490,6 @@
         renderKeyboard();
     }
 
-    // --- ドラッグ＆ドロップ処理 ---
     function createDropSlot(layoutName, rowIndex, slotIndex) {
         const slot = document.createElement('div');
         slot.className = 'drop-slot';
@@ -622,12 +608,23 @@
                 if (rowIndex === 2) {
                     const shiftBtn = document.createElement('div');
                     shiftBtn.className = 'key-btn key-system sys-drop-target';
+                    
+                    // ★大文字小文字切替キーと削除キーのサイズを拡大
                     if (qwertyPage === 'numbers') {
-                        shiftBtn.textContent = '#+='; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
+                        shiftBtn.textContent = '#+='; 
+                        shiftBtn.style.fontSize = '14px'; // 記号は通常サイズ
+                        shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; 
+                        setupSystemDropTarget(shiftBtn, 'symbols');
                     } else if (qwertyPage === 'symbols') {
-                        shiftBtn.textContent = '123'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
+                        shiftBtn.textContent = '123'; 
+                        shiftBtn.style.fontSize = '14px'; // 記号は通常サイズ
+                        shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; 
+                        setupSystemDropTarget(shiftBtn, 'numbers');
                     } else {
-                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
+                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; 
+                        shiftBtn.style.fontSize = '22px'; // 矢印は大きく
+                        shiftBtn.onclick = toggleShiftPage; 
+                        setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
                     }
                     rowDiv.appendChild(shiftBtn);
                 }
@@ -648,14 +645,18 @@
                 }
 
                 if (rowIndex === 2) {
-                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.onclick = backspace; rowDiv.appendChild(bsBtn);
+                    const bsBtn = document.createElement('div'); 
+                    bsBtn.className = 'key-btn key-system'; 
+                    bsBtn.textContent = '⌫'; 
+                    bsBtn.style.fontSize = '22px'; // ★削除キーを大きく
+                    bsBtn.onclick = backspace; 
+                    rowDiv.appendChild(bsBtn);
                 }
 
                 if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
             });
         }
         
-        // 描画後にスマホ用の縮小処理を実行
         adjustKeyboardScale();
     }
 
