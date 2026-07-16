@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (十字キー対応・キーボード最適化版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -167,7 +167,7 @@
     </div>
 
     <div class="section">
-        <h3>1. 文字をつくる/編集する</h3>
+        <h3>1. 文字をつくる / 編集する</h3>
         <canvas id="drawCanvas" width="200" height="200"></canvas>
         <div class="line-width-selector">
             <span>線の太さ:</span>
@@ -194,7 +194,7 @@
     <div class="section">
         <h3>2. キーボード</h3>
         <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">
-            ※PCやiPadのキーボードからも直接タイピングできます。
+            ※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。
         </p>
         <div class="tabs" style="justify-content: space-between; align-items: center;">
             <div style="display: flex; gap: 10px;">
@@ -210,7 +210,7 @@
         </div>
         
         <div id="editBanner">
-            長押しでドラッグ移動・スワップ(交換)が可能です。<br>※システムキー(↑、123等)の上に落とすとページ間移動します。
+            [編集] 長押しでドラッグ移動・スワップ(交換)が可能です。<br>※システムキー(↑、123等)の上に落とすとページ間移動します。
         </div>
 
         <div class="keyboard-wrapper" id="keyboardWrapper">
@@ -271,16 +271,15 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V24 = 'artificial_text_dict_v24';
-    const STORAGE_KEY_LAYOUTS_V24 = 'artificial_text_layouts_v24';
-    const STORAGE_KEY_DOC_V24 = 'artificial_text_doc_v24';
+    const STORAGE_KEY_DICT_V25 = 'artificial_text_dict_v25';
+    const STORAGE_KEY_LAYOUTS_V25 = 'artificial_text_layouts_v25';
+    const STORAGE_KEY_DOC_V25 = 'artificial_text_doc_v25';
 
     const DPI = 2;
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
     
-    // ★typedSequenceには確定した文字のIDか、未確定の文字列（音素）が混在して入ります
     let typedSequence = [];    
     let isEditMode = false;
     let mainTab = 'qwerty'; 
@@ -335,13 +334,13 @@
         const docData = {
             sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode
         };
-        localStorage.setItem(STORAGE_KEY_DOC_V24, JSON.stringify(docData));
+        localStorage.setItem(STORAGE_KEY_DOC_V25, JSON.stringify(docData));
     }
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V24);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V24);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V24);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V25);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V25);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V25);
         
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         
@@ -360,22 +359,29 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V24, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V24, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V24, JSON.stringify(importedData.doc));
+                    localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V25, JSON.stringify(importedData.doc));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V24)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V24)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V25)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V25)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
                             currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50*DPI, leftPad: 2*DPI, rightPad: 2*DPI, actualHeight: 50*DPI, topPad: 2*DPI, bottomPad: 2*DPI, minX: 25*DPI, minY: 25*DPI };
+                            
+                            // ★追加: カスタムタブへの追加時に自動で折り返す
                             if (currentLayouts.custom1.length === 0) currentLayouts.custom1.push([]);
-                            currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
+                            let targetRow = currentLayouts.custom1[currentLayouts.custom1.length - 1];
+                            if (targetRow.length >= 10) {
+                                currentLayouts.custom1.push([newId]);
+                            } else {
+                                targetRow.push(newId);
+                            }
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V24, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V24, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -385,7 +391,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V24); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V24); localStorage.removeItem(STORAGE_KEY_DOC_V24); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V25); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V25); localStorage.removeItem(STORAGE_KEY_DOC_V25); location.reload();
         }
     }
 
@@ -454,10 +460,10 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V24)) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V24));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V25)) || JSON.parse(localStorage.getItem('artificial_text_dict_v24')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V25)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v24'));
         
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V24));
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V25)) || JSON.parse(localStorage.getItem('artificial_text_doc_v24'));
         if (savedDoc) {
             typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
             if (savedDoc.textSize) { textRenderSize = savedDoc.textSize; document.getElementById('textSizeSlider').value = textRenderSize; document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; }
@@ -527,8 +533,8 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V24, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V24, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -611,7 +617,14 @@
             if (isNew) {
                 const cPage = 'custom' + customPageNum;
                 if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
-                layouts[cPage][layouts[cPage].length - 1].push(targetId);
+                
+                // ★追加: 登録時も10個で自動改行
+                let targetRow = layouts[cPage][layouts[cPage].length - 1];
+                if (targetRow.length >= 10) {
+                    layouts[cPage].push([targetId]);
+                } else {
+                    targetRow.push(targetId);
+                }
                 
                 let foundInQwerty = false;
                 ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
@@ -745,108 +758,6 @@
         element.ondrop = (e) => { e.preventDefault(); element.classList.remove('drag-over'); handleSystemDrop(targetPage); };
     }
 
-    // ★入力処理（画面タップ・物理キー共通の合字・未確定バッファ処理エンジン）
-    function processInput(inputStr) {
-        if (inputStr === 'Backspace') { backspace(); return; }
-        if (inputStr === '改行' || inputStr === 'Enter') {
-            typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
-        }
-        if (inputStr === '空白' || inputStr === ' ') {
-            typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
-        }
-
-        // 1文字（文字列またはIDの音素）を履歴に追加
-        typedSequence.splice(cursorIndex, 0, inputStr);
-        cursorIndex++;
-
-        let bestMatchId = null;
-        let bestMatchLength = 0;
-        const MAX_LOOKBACK = 15; 
-        const limit = Math.min(cursorIndex, MAX_LOOKBACK);
-
-        for (let i = 1; i <= limit; i++) {
-            let valid = true;
-            let combinedPhoneme = "";
-            for (let j = cursorIndex - i; j < cursorIndex; j++) {
-                const item = typedSequence[j];
-                if (item === '改行' || item === '空白') {
-                    valid = false; break;
-                }
-                if (charDictionary[item]) {
-                    combinedPhoneme += charDictionary[item].phoneme;
-                } else {
-                    combinedPhoneme += item; 
-                }
-            }
-            if (!valid) break; 
-
-            for (const id in charDictionary) {
-                if (charDictionary[id].phoneme === combinedPhoneme) {
-                    bestMatchId = id;
-                    bestMatchLength = i;
-                }
-            }
-        }
-
-        if (bestMatchId) {
-            typedSequence.splice(cursorIndex - bestMatchLength, bestMatchLength, bestMatchId);
-            cursorIndex -= (bestMatchLength - 1);
-        }
-        
-        saveDocumentData();
-        renderOutputToCache();
-    }
-
-    function backspace() { 
-        if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } 
-    }
-    
-    function clearOutput() { typedSequence = []; cursorIndex = 0; saveDocumentData(); renderOutputToCache(); }
-
-    // ★キーボードの押し込みアニメーション
-    function triggerKeyAnimation(keyStr) {
-        let targets = [];
-        if (keyStr === 'Backspace' || keyStr === '⌫') {
-            document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); });
-        } else if (keyStr === 'Enter' || keyStr === '改行') {
-            targets = document.querySelectorAll('.key-return');
-        } else if (keyStr === ' ' || keyStr === '空白') {
-            targets = document.querySelectorAll('.key-space');
-        } else {
-            document.querySelectorAll('.key-label').forEach(label => {
-                if (label.textContent === keyStr) targets.push(label.parentElement);
-            });
-            if (targets.length === 0) {
-                document.querySelectorAll('.key-empty .key-label').forEach(label => {
-                    if (label.textContent === keyStr) targets.push(label.parentElement);
-                });
-            }
-        }
-        
-        targets.forEach(btn => {
-            btn.classList.add('active-anim');
-            setTimeout(() => { btn.classList.remove('active-anim'); }, 100);
-        });
-    }
-
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-        if (e.ctrlKey || e.metaKey || e.altKey) return;
-        
-        if (e.key === 'Backspace' || e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            processInput(e.key);
-            triggerKeyAnimation(e.key);
-            return;
-        }
-        
-        if (e.key.length === 1) {
-            e.preventDefault();
-            processInput(e.key);
-            triggerKeyAnimation(e.key);
-        }
-    });
-
     function renderKeyboard() {
         const container = document.getElementById('keysContainer');
         container.innerHTML = '';
@@ -968,7 +879,6 @@
             if (isEditMode && isRegistered) {
                 clearDrawCanvas(); dCtx.drawImage(charData.img, 0, 0); document.getElementById('phonemeInput').value = charData.phoneme; currentEditingId = itemValue; window.scrollTo({ top: 0, behavior: 'smooth' });
             } else if (!isEditMode) {
-                // 画面キーボードタップ時も、物理キー入力と同じプロセスに流す
                 const inputVal = isRegistered ? charData.phoneme : itemValue;
                 processInput(inputVal);
                 triggerKeyAnimation(displayLabel);
@@ -1016,7 +926,7 @@
         
         const renderHeight = textRenderSize * DPI; 
         const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
-        const scale = renderHeight / 200; // 内部解像度200
+        const scale = renderHeight / 200; 
         cursorHeight = renderHeight;
 
         let x, y;
@@ -1085,7 +995,6 @@
 
             const charData = charDictionary[item];
             if (charData) {
-                // 登録された人工文字の描画
                 if (textDirection === 'ltr') {
                     const renderWidthActual = charData.actualWidth * scale;
                     if (x + renderWidthActual > PAGE_WIDTH - MARGIN_X) { 
@@ -1139,7 +1048,6 @@
                     y += renderHeightActual;
                 }
             } else if (typeof item === 'string') {
-                // ★未登録の音素（確定待ちバッファ）をグレー文字で描画
                 currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; 
                 currentCtx.fillStyle = "#bbbbbb"; 
                 currentCtx.textBaseline = "middle";
@@ -1313,6 +1221,179 @@
     }
 
     function closeDownloadModal() { document.getElementById('downloadModal').style.display = 'none'; }
+
+    // ★矢印キーでのカーソル移動ロジック
+    function handleArrowNavigation(key) {
+        if (window.cachedCursorPositions.length === 0) return;
+        
+        let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y;
+        if (textDirection === 'ttb') {
+            getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
+        }
+        
+        const linesMap = new Map();
+        cachedCursorPositions.forEach((pos, i) => {
+            const lk = getLineKey(pos);
+            const roundKey = Math.round(lk);
+            let foundKey = roundKey;
+            for (let k of linesMap.keys()) {
+                if (Math.abs(k - roundKey) < 5) { foundKey = k; break; }
+            }
+            if (!linesMap.has(foundKey)) linesMap.set(foundKey, []);
+            linesMap.get(foundKey).push({ ...pos, index: i });
+        });
+        const sortedLines = Array.from(linesMap.keys()).sort((a, b) => a - b);
+        
+        const curr = cachedCursorPositions[cursorIndex];
+        const currLineKey = getLineKey(curr);
+        let currentLineIdx = sortedLines.findIndex(k => Math.abs(k - Math.round(currLineKey)) < 5);
+        if (currentLineIdx === -1) currentLineIdx = 0; 
+        
+        function cursorLineMove(targetLineIdx, axis) {
+            if (targetLineIdx < 0) {
+                cursorIndex = 0;
+            } else if (targetLineIdx >= sortedLines.length) {
+                cursorIndex = typedSequence.length;
+            } else {
+                const candidates = linesMap.get(sortedLines[targetLineIdx]);
+                let bestIdx = candidates[0].index;
+                let minDiff = Math.abs(candidates[0][axis] - curr[axis]);
+                for (let pos of candidates) {
+                    let diff = Math.abs(pos[axis] - curr[axis]);
+                    if (diff < minDiff) { minDiff = diff; bestIdx = pos.index; }
+                }
+                cursorIndex = bestIdx;
+            }
+        }
+
+        if (textDirection === 'ltr') {
+            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x');
+            else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
+            else if (key === 'ArrowLeft') cursorIndex = Math.max(0, cursorIndex - 1);
+            else if (key === 'ArrowRight') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
+        } else if (textDirection === 'rtl') {
+            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x');
+            else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
+            else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
+            else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1);
+        } else if (textDirection === 'ttb') {
+            if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y');
+            else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y');
+            else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1);
+            else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
+        }
+    }
+
+    // ★入力処理（未確定バッファと最長一致の合字システム）
+    function processInput(inputStr) {
+        if (inputStr === 'Backspace') { backspace(); return; }
+        if (inputStr === '改行' || inputStr === 'Enter') {
+            typedSequence.splice(cursorIndex, 0, '改行'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
+        }
+        if (inputStr === '空白' || inputStr === ' ') {
+            typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
+        }
+
+        // まず新しい音素(文字列)としてカーソル位置に挿入
+        typedSequence.splice(cursorIndex, 0, inputStr);
+        cursorIndex++;
+
+        let bestMatchId = null;
+        let bestMatchLength = 0;
+        const MAX_LOOKBACK = 15; 
+        const limit = Math.min(cursorIndex, MAX_LOOKBACK);
+
+        // カーソル手前から遡って「登録されている最長の合字」を探す
+        for (let i = 1; i <= limit; i++) {
+            let valid = true;
+            let combinedPhoneme = "";
+            for (let j = cursorIndex - i; j < cursorIndex; j++) {
+                const item = typedSequence[j];
+                if (item === '改行' || item === '空白') { valid = false; break; }
+                
+                if (charDictionary[item]) {
+                    combinedPhoneme += charDictionary[item].phoneme;
+                } else {
+                    combinedPhoneme += item; 
+                }
+            }
+            if (!valid) break; 
+
+            for (const id in charDictionary) {
+                if (charDictionary[id].phoneme === combinedPhoneme) {
+                    bestMatchId = id;
+                    bestMatchLength = i;
+                }
+            }
+        }
+
+        // 最長一致する文字が見つかったら、過去の履歴を消して合体させる
+        if (bestMatchId) {
+            typedSequence.splice(cursorIndex - bestMatchLength, bestMatchLength, bestMatchId);
+            cursorIndex -= (bestMatchLength - 1);
+        }
+        
+        saveDocumentData();
+        renderOutputToCache();
+    }
+
+    function backspace() { 
+        if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } 
+    }
+    
+    function clearOutput() { typedSequence = []; cursorIndex = 0; saveDocumentData(); renderOutputToCache(); }
+
+    function triggerKeyAnimation(keyStr) {
+        let targets = [];
+        if (keyStr === 'Backspace' || keyStr === '⌫') {
+            document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); });
+        } else if (keyStr === 'Enter' || keyStr === '改行') {
+            targets = document.querySelectorAll('.key-return');
+        } else if (keyStr === ' ' || keyStr === '空白') {
+            targets = document.querySelectorAll('.key-space');
+        } else {
+            document.querySelectorAll('.key-label').forEach(label => {
+                if (label.textContent === keyStr) targets.push(label.parentElement);
+            });
+            if (targets.length === 0) {
+                document.querySelectorAll('.key-empty .key-label').forEach(label => {
+                    if (label.textContent === keyStr) targets.push(label.parentElement);
+                });
+            }
+        }
+        
+        targets.forEach(btn => {
+            btn.classList.add('active-anim');
+            setTimeout(() => { btn.classList.remove('active-anim'); }, 100);
+        });
+    }
+
+    // ★物理キーボードイベント
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            handleArrowNavigation(e.key);
+            renderOutputToCache();
+            return;
+        }
+        
+        if (e.key === 'Backspace' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            processInput(e.key);
+            triggerKeyAnimation(e.key);
+            return;
+        }
+        
+        if (e.key.length === 1) {
+            e.preventDefault();
+            processInput(e.key);
+            triggerKeyAnimation(e.key);
+        }
+    });
+
 </script>
 </body>
 </html>
