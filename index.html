@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (A4ページネーション・文字サイズ対応版)</title>
+    <title>人工文字作成エディタ (カーソル移動・挿入対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -32,7 +32,6 @@
             border-radius: 8px; touch-action: none; cursor: crosshair; 
         }
         
-        /* ★ドキュメントビューア風のスタイル（A4用紙が並ぶエリア） */
         #documentContainer {
             background: #9ca3af;
             padding: 20px;
@@ -51,6 +50,7 @@
             max-width: 100%;
             height: auto;
             border-radius: 2px;
+            cursor: text; /* ★カーソルがテキスト入力モードになるように変更 */
         }
         
         .keyboard-wrapper { 
@@ -60,7 +60,6 @@
             width: max-content; margin-left: auto; margin-right: auto; transform-origin: top center;
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
-        
         .keyboard-wrapper.hide-key-labels .key-btn:not(.key-empty) .key-label { display: none; }
         
         .keyboard-row { display: flex; justify-content: flex-start; margin-bottom: 10px; width: max-content; }
@@ -84,7 +83,6 @@
         
         .keyboard-wrapper.hide-key-labels .key-btn { height: 42px; padding: 8px 3px; }
         .keyboard-wrapper.hide-key-labels .key-btn img { max-height: 28px; }
-        
         .key-empty { background: transparent; box-shadow: 0 1px 0 rgba(0,0,0,0.1); border: 1px dashed rgba(0,0,0,0.15); color: #888; }
         
         .key-system { background: var(--ios-sys-key); font-size: 14px; font-weight: 500; min-width: 42px; color: #000; }
@@ -147,10 +145,8 @@
 
         .line-width-selector { display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333; }
         .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-        
         .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
         .toggle-switch input { transform: scale(1.2); cursor: pointer; }
-        
         .slider-container { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 10px; }
         .slider-container input[type="range"] { flex-grow: 1; }
     </style>
@@ -219,7 +215,6 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         
-        <!-- ★文字サイズ調整スライダー -->
         <div class="slider-container">
             <span style="font-weight: bold; font-size: 0.9em;">文字の大きさ:</span>
             <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
@@ -233,7 +228,6 @@
             <button class="btn-danger" style="background: #ff3b30; color: white; border: none; padding: 4px 8px; font-size: 0.85em;" onclick="clearOutput()">全消去</button>
         </div>
 
-        <!-- ★A4ページネーションエリア -->
         <div id="documentContainer">
             <!-- ここに自動でページ（Canvas）が追加されます -->
         </div>
@@ -244,8 +238,8 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V17 = 'artificial_text_dict_v17';
-    const STORAGE_KEY_LAYOUTS_V17 = 'artificial_text_layouts_v17';
+    const STORAGE_KEY_DICT_V18 = 'artificial_text_dict_v18';
+    const STORAGE_KEY_LAYOUTS_V18 = 'artificial_text_layouts_v18';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -260,17 +254,20 @@
     
     let currentLineWidth = 4;
     let isReadingMode = false;
-    let textRenderSize = 50; // 文字の大きさ
+    let textRenderSize = 50; 
 
-    // ★A4ページネーション設定
+    // ★挿入用カーソルのインデックス位置
+    let cursorIndex = 0; 
+
     const PAGE_WIDTH = 600;
-    const PAGE_HEIGHT = Math.floor(PAGE_WIDTH * 1.414); // A4比率 (約848px)
+    const PAGE_HEIGHT = Math.floor(PAGE_WIDTH * 1.414); 
     const MARGIN_X = 30;
     const MARGIN_Y = 40;
     
-    let pagesData = []; // 裏側のCanvas(オフスクリーン)配列
+    let pagesData = []; 
+    // ★全カーソル位置の座標を記録する配列（タップヒットテスト用）
+    window.cachedCursorPositions = [];
     
-    // カーソル制御
     let cursorX = MARGIN_X; let cursorY = MARGIN_Y; let cursorHeight = 50; let cursorPage = 0;
     let isCursorVisible = true;
     let cursorBlinkTimer = null; let typingTimeout = null;
@@ -299,8 +296,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V17);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V17);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V18);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V18);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -315,11 +312,11 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V17, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V17, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V17)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V17)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V18)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V18)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -328,8 +325,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V17, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V17, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -339,7 +336,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V17); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V17); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V18); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V18); location.reload();
         }
     }
 
@@ -388,8 +385,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V17)) || JSON.parse(localStorage.getItem('artificial_text_dict_v16')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V17)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v16'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V18)) || JSON.parse(localStorage.getItem('artificial_text_dict_v17')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V18)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v17'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -403,24 +400,27 @@
         const totalKeys = Object.keys(savedDict).length;
         if (totalKeys === 0) { 
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            renderKeyboard(); renderOutputToCache(); startCursorBlink(); return; 
-        }
-
-        let loadedCount = 0;
-        for (const id in savedDict) {
-            const data = savedDict[id]; const img = new Image();
-            img.onload = () => {
-                charDictionary[id] = { img: img, actualWidth: data.actualWidth, leftPad: data.leftPad, rightPad: data.rightPad, url: data.url, phoneme: data.phoneme };
-                loadedCount++;
-                if (loadedCount === totalKeys) { 
-                    cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-                    renderKeyboard(); renderOutputToCache(); startCursorBlink();
-                }
-            };
-            img.src = data.url;
+            renderKeyboard(); renderOutputToCache(); startCursorBlink(); 
+        } else {
+            let loadedCount = 0;
+            for (const id in savedDict) {
+                const data = savedDict[id]; const img = new Image();
+                img.onload = () => {
+                    charDictionary[id] = { img: img, actualWidth: data.actualWidth, leftPad: data.leftPad, rightPad: data.rightPad, url: data.url, phoneme: data.phoneme };
+                    loadedCount++;
+                    if (loadedCount === totalKeys) { 
+                        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
+                        renderKeyboard(); renderOutputToCache(); startCursorBlink();
+                    }
+                };
+                img.src = data.url;
+            }
         }
         
         window.addEventListener('resize', adjustKeyboardScale);
+        
+        // ★ドキュメント内でのクリック（タップ）を検知してカーソルを移動
+        document.getElementById('documentContainer').addEventListener('click', handleDocumentClick);
     };
 
     function saveDataToStorage() {
@@ -428,8 +428,8 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V17, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V17, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -777,11 +777,30 @@
         saveDataToStorage(); renderKeyboard();
     }
 
-    function typeCharacter(id) { typedSequence.push(id); renderOutputToCache(); }
-    function addFunctionKey(funcType) { typedSequence.push(funcType); renderOutputToCache(); }
-    function backspace() { if(typedSequence.length > 0) { typedSequence.pop(); renderOutputToCache(); } }
+    // ★挿入位置（カーソル）に文字を追加・削除するように変更
+    function typeCharacter(id) { 
+        typedSequence.splice(cursorIndex, 0, id); 
+        cursorIndex++; 
+        renderOutputToCache(); 
+    }
+    function addFunctionKey(funcType) { 
+        typedSequence.splice(cursorIndex, 0, funcType); 
+        cursorIndex++; 
+        renderOutputToCache(); 
+    }
+    function backspace() { 
+        if(cursorIndex > 0) { 
+            typedSequence.splice(cursorIndex - 1, 1); 
+            cursorIndex--; 
+            renderOutputToCache(); 
+        } 
+    }
+    function clearOutput() { 
+        typedSequence = []; 
+        cursorIndex = 0; 
+        renderOutputToCache(); 
+    }
 
-    // ★A4ページネーション制御ロジック
     function createNewPage() {
         const canvas = document.createElement('canvas');
         canvas.width = PAGE_WIDTH;
@@ -795,6 +814,7 @@
 
     function renderOutputToCache() {
         pagesData = [];
+        window.cachedCursorPositions = [];
         let currentCtx = createNewPage();
         
         let x = MARGIN_X; 
@@ -804,16 +824,19 @@
         const renderHeight = textRenderSize;
         const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
         const scale = renderHeight / drawCanvas.height;
-        cursorHeight = renderHeight;
 
-        for (const item of typedSequence) {
-            // 改行処理
+        // 全文字をループして座標とインデックスを記録・描画
+        for (let i = 0; i < typedSequence.length; i++) {
+            const item = typedSequence[i];
+            
+            // この文字の「前」のカーソル位置を記録
+            window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight });
+
             if (item === '改行') { 
                 x = MARGIN_X; 
                 y += renderHeight + lineSpacing;
-                if (isReadingMode) y += renderHeight * 0.3; // ルビ用の余白を追加
+                if (isReadingMode) y += renderHeight * 0.3; 
                 
-                // 改ページ判定
                 if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
                     currentCtx = createNewPage();
                     currentPageIndex++;
@@ -823,9 +846,8 @@
                 continue; 
             }
             
-            // 空白処理
             if (item === '空白') { 
-                x += renderHeight * 0.6; // サイズに比例した空白
+                x += renderHeight * 0.6; 
                 if (x > PAGE_WIDTH - MARGIN_X) {
                     x = MARGIN_X;
                     y += renderHeight + lineSpacing;
@@ -840,30 +862,28 @@
                 continue; 
             }
 
-            // 文字描画処理
             const charData = charDictionary[item];
             if (charData) {
                 const renderWidth = charData.actualWidth * scale;
                 
-                // 右端での折り返し判定
                 if (x + renderWidth > PAGE_WIDTH - MARGIN_X) { 
                     x = MARGIN_X; 
                     y += renderHeight + lineSpacing;
                     if (isReadingMode) y += renderHeight * 0.3;
                     
-                    // 改ページ判定
                     if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
                         currentCtx = createNewPage();
                         currentPageIndex++;
                         x = MARGIN_X;
                         y = MARGIN_Y;
                     }
+                    // 折り返した場合は、カーソルの記録位置も新しい行の先頭に更新
+                    window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight };
                 }
                 
                 const sourceX = Math.max(0, getCharacterBoundsFromCtx(getContextForImage(charData.img), drawCanvas.width, drawCanvas.height).minX - charData.leftPad);
                 currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
                 
-                // ルビ描画
                 if (isReadingMode) {
                     const fontSize = Math.max(10, renderHeight * 0.3);
                     currentCtx.font = `${fontSize}px -apple-system, sans-serif`; 
@@ -875,16 +895,29 @@
             }
         }
         
-        cursorX = x; cursorY = y; cursorPage = currentPageIndex;
+        // ★一番最後（入力末尾）のカーソル位置を記録
+        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight });
+        
+        // セーフティチェック
+        if (cursorIndex < 0) cursorIndex = 0;
+        if (cursorIndex > typedSequence.length) cursorIndex = typedSequence.length;
+        
+        // 現在のカーソル位置を設定
+        const currentPos = window.cachedCursorPositions[cursorIndex];
+        if (currentPos) {
+            cursorX = currentPos.x;
+            cursorY = currentPos.y;
+            cursorPage = currentPos.page;
+            cursorHeight = currentPos.height;
+        }
+
         updateOutputDOM();
         resetCursorBlink();
     }
 
-    // ★DOMへの反映（複数Canvasの管理とカーソル描画）
     function updateOutputDOM() {
         const container = document.getElementById('documentContainer');
         
-        // 必要な数だけCanvas要素をDOMに生成・削除
         while(container.children.length < pagesData.length) {
             const c = document.createElement('canvas');
             c.className = 'output-page';
@@ -896,7 +929,6 @@
             container.removeChild(container.lastChild);
         }
 
-        // オフスクリーンCanvasの中身をDOMに転写し、カーソルを重ね描きする
         for(let i = 0; i < pagesData.length; i++) {
             const ctx = container.children[i].getContext('2d');
             ctx.drawImage(pagesData[i], 0, 0);
@@ -910,6 +942,55 @@
                 ctx.stroke();
             }
         }
+    }
+
+    // ★タップ・クリックした位置から一番近いカーソル位置を割り出して移動する処理
+    function handleDocumentClick(e) {
+        const canvas = e.target.closest('.output-page');
+        if (!canvas || window.cachedCursorPositions.length === 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        const container = document.getElementById('documentContainer');
+        const pageIndex = Array.from(container.children).indexOf(canvas);
+
+        // クリックされたページのカーソル位置候補をすべて取得
+        const positionsOnPage = window.cachedCursorPositions
+            .map((pos, index) => ({ ...pos, index }))
+            .filter(pos => pos.page === pageIndex);
+
+        if (positionsOnPage.length === 0) return;
+
+        // ① 一番近い「行(Y軸)」を探す
+        let closestY = positionsOnPage[0].y;
+        let minYDist = Infinity;
+        for (const pos of positionsOnPage) {
+            const dist = Math.abs(clickY - (pos.y + pos.height / 2)); 
+            if (dist < minYDist) {
+                minYDist = dist;
+                closestY = pos.y;
+            }
+        }
+
+        // ② その行の中で一番近い「横位置(X軸)」を探す
+        const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY);
+        let closestIndex = positionsOnLine[0].index;
+        let minXDist = Infinity;
+        for (const pos of positionsOnLine) {
+            const dist = Math.abs(clickX - pos.x);
+            if (dist < minXDist) {
+                minXDist = dist;
+                closestIndex = pos.index;
+            }
+        }
+
+        cursorIndex = closestIndex;
+        renderOutputToCache(); // 再描画してカーソルを移動
     }
 
     function startCursorBlink() {
@@ -930,32 +1011,22 @@
         const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0); return tempCtx;
     }
 
-    function clearOutput() { typedSequence = []; renderOutputToCache(); }
-    
-    // ★全ページ一括画像保存（縦に繋げて1枚にする）
     function downloadImage() {
         if (pagesData.length === 0) return;
-        
         const combinedCanvas = document.createElement('canvas');
         combinedCanvas.width = PAGE_WIDTH;
         combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
         const ctx = combinedCanvas.getContext('2d');
         
-        pagesData.forEach((canvas, i) => {
-            ctx.drawImage(canvas, 0, i * PAGE_HEIGHT);
-        });
+        pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
 
         try {
             combinedCanvas.toBlob(function(blob) {
                 if (!blob) throw new Error("Blob creation failed");
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
-                link.href = url;
-                link.download = 'artificial_text_document.png';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                link.href = url; link.download = 'artificial_text_document.png';
+                document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
             }, 'image/png');
         } catch (e) {
             const dataUrl = combinedCanvas.toDataURL("image/png");
