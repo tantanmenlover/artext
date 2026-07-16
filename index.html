@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (カーソル移動・挿入対応版)</title>
+    <title>人工文字作成エディタ (縦書き・方向切替・個別保存対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -33,24 +33,13 @@
         }
         
         #documentContainer {
-            background: #9ca3af;
-            padding: 20px;
-            border-radius: 8px;
-            max-height: 60vh;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            border: 1px inset #888;
+            background: #9ca3af; padding: 20px; border-radius: 8px; max-height: 60vh;
+            overflow-y: auto; display: flex; flex-direction: column; align-items: center;
+            gap: 20px; border: 1px inset #888;
         }
         .output-page {
-            background: #fff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            max-width: 100%;
-            height: auto;
-            border-radius: 2px;
-            cursor: text; /* ★カーソルがテキスト入力モードになるように変更 */
+            background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 100%; height: auto; border-radius: 2px; cursor: text;
         }
         
         .keyboard-wrapper { 
@@ -91,16 +80,12 @@
         .key-return { min-width: 65px; background: var(--ios-sys-key); font-size: 14px; font-weight: 500; }
         .sys-drop-target.drag-over { background: #007aff !important; color: white !important; }
         
-        .key-edit-mode.movable { 
-            cursor: grab; animation: jiggle 0.3s infinite alternate; 
-            -webkit-touch-callout: none;
-        }
+        .key-edit-mode.movable { cursor: grab; animation: jiggle 0.3s infinite alternate; -webkit-touch-callout: none; }
         .key-edit-mode.movable:active { cursor: grabbing; }
         .key-btn.drag-over-swap { border: 2px solid #007aff; transform: scale(1.1); z-index: 10; background: #e5f0ff; }
         
         .action-badge {
-            position: absolute; top: -8px; width: 22px; height: 22px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; top: -8px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
             font-size: 14px; font-weight: bold; color: white; cursor: pointer; z-index: 10;
         }
         .delete-badge { right: -8px; background: #ff3b30; }
@@ -114,10 +99,8 @@
         .drop-slot.drag-over { background: rgba(0, 122, 255, 0.3); width: 36px; border-style: solid; }
 
         .row-drop-area {
-            width: 90%; height: 40px; margin: 0 auto;
-            border: 2px dashed rgba(0, 122, 255, 0.4); border-radius: 8px;
-            display: flex; justify-content: center; align-items: center;
-            color: #007aff; font-size: 13px; font-weight: bold; background: rgba(0, 122, 255, 0.05);
+            width: 90%; height: 40px; margin: 0 auto; border: 2px dashed rgba(0, 122, 255, 0.4); border-radius: 8px;
+            display: flex; justify-content: center; align-items: center; color: #007aff; font-size: 13px; font-weight: bold; background: rgba(0, 122, 255, 0.05);
             cursor: pointer; touch-action: manipulation;
         }
         .row-drop-area.drag-over { background: rgba(0, 122, 255, 0.2); border-style: solid; }
@@ -138,8 +121,7 @@
         .tab.active { background: #007aff; color: white; }
 
         #editBanner {
-            display: none; background: #e5f0ff; padding: 10px; border-radius: 8px;
-            margin-bottom: 10px; text-align: center; font-weight: bold; color: #0056b3;
+            display: none; background: #e5f0ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; font-weight: bold; color: #0056b3;
             border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
         }
 
@@ -149,6 +131,9 @@
         .toggle-switch input { transform: scale(1.2); cursor: pointer; }
         .slider-container { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 10px; }
         .slider-container input[type="range"] { flex-grow: 1; }
+        
+        /* セレクトボックスのデザイン */
+        select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
     </style>
 </head>
 <body>
@@ -215,10 +200,20 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         
+        <!-- ★文字サイズ調整と書字方向設定 -->
         <div class="slider-container">
-            <span style="font-weight: bold; font-size: 0.9em;">文字の大きさ:</span>
+            <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">文字サイズ:</span>
             <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
             <span id="textSizeLabel" style="font-size: 0.9em; width: 40px; text-align: right;">50px</span>
+        </div>
+        
+        <div class="slider-container" style="margin-bottom: 15px;">
+            <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">書字方向:</span>
+            <select id="textDirectionSelect" onchange="changeTextDirection()" style="flex-grow: 1;">
+                <option value="ltr">左から右 (横書き)</option>
+                <option value="rtl">右から左 (横書き)</option>
+                <option value="ttb">上から下 (縦書き)</option>
+            </select>
         </div>
         
         <div class="controls" style="justify-content: space-between; margin-bottom: 10px;">
@@ -232,14 +227,15 @@
             <!-- ここに自動でページ（Canvas）が追加されます -->
         </div>
         
-        <div class="controls" style="margin-top: 15px;">
-            <button onclick="downloadImage()" style="width: 100%;">全ページを繋げて画像保存</button>
+        <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
+            <button onclick="downloadImageCombined()" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
+            <button onclick="downloadPagesIndividually()" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
         </div>
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V18 = 'artificial_text_dict_v18';
-    const STORAGE_KEY_LAYOUTS_V18 = 'artificial_text_layouts_v18';
+    const STORAGE_KEY_DICT_V19 = 'artificial_text_dict_v19';
+    const STORAGE_KEY_LAYOUTS_V19 = 'artificial_text_layouts_v19';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -255,8 +251,8 @@
     let currentLineWidth = 4;
     let isReadingMode = false;
     let textRenderSize = 50; 
+    let textDirection = 'ltr'; // ltr, rtl, ttb
 
-    // ★挿入用カーソルのインデックス位置
     let cursorIndex = 0; 
 
     const PAGE_WIDTH = 600;
@@ -265,7 +261,6 @@
     const MARGIN_Y = 40;
     
     let pagesData = []; 
-    // ★全カーソル位置の座標を記録する配列（タップヒットテスト用）
     window.cachedCursorPositions = [];
     
     let cursorX = MARGIN_X; let cursorY = MARGIN_Y; let cursorHeight = 50; let cursorPage = 0;
@@ -296,8 +291,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V18);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V18);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V19);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V19);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -312,11 +307,11 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V18)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V18)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -325,8 +320,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -336,7 +331,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V18); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V18); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V19); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V19); location.reload();
         }
     }
 
@@ -385,8 +380,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V18)) || JSON.parse(localStorage.getItem('artificial_text_dict_v17')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V18)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v17'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || JSON.parse(localStorage.getItem('artificial_text_dict_v18')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v18'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -418,8 +413,6 @@
         }
         
         window.addEventListener('resize', adjustKeyboardScale);
-        
-        // ★ドキュメント内でのクリック（タップ）を検知してカーソルを移動
         document.getElementById('documentContainer').addEventListener('click', handleDocumentClick);
     };
 
@@ -428,8 +421,8 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V18, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V18, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -566,6 +559,11 @@
     function changeTextSize() {
         textRenderSize = parseInt(document.getElementById('textSizeSlider').value, 10);
         document.getElementById('textSizeLabel').textContent = textRenderSize + 'px';
+        renderOutputToCache();
+    }
+    
+    function changeTextDirection() {
+        textDirection = document.getElementById('textDirectionSelect').value;
         renderOutputToCache();
     }
 
@@ -777,37 +775,17 @@
         saveDataToStorage(); renderKeyboard();
     }
 
-    // ★挿入位置（カーソル）に文字を追加・削除するように変更
-    function typeCharacter(id) { 
-        typedSequence.splice(cursorIndex, 0, id); 
-        cursorIndex++; 
-        renderOutputToCache(); 
-    }
-    function addFunctionKey(funcType) { 
-        typedSequence.splice(cursorIndex, 0, funcType); 
-        cursorIndex++; 
-        renderOutputToCache(); 
-    }
-    function backspace() { 
-        if(cursorIndex > 0) { 
-            typedSequence.splice(cursorIndex - 1, 1); 
-            cursorIndex--; 
-            renderOutputToCache(); 
-        } 
-    }
-    function clearOutput() { 
-        typedSequence = []; 
-        cursorIndex = 0; 
-        renderOutputToCache(); 
-    }
+    // --- 3. 文章生成と出力キャンバス処理 (多方向対応) ---
+    function typeCharacter(id) { typedSequence.splice(cursorIndex, 0, id); cursorIndex++; renderOutputToCache(); }
+    function addFunctionKey(funcType) { typedSequence.splice(cursorIndex, 0, funcType); cursorIndex++; renderOutputToCache(); }
+    function backspace() { if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; renderOutputToCache(); } }
+    function clearOutput() { typedSequence = []; cursorIndex = 0; renderOutputToCache(); }
 
     function createNewPage() {
         const canvas = document.createElement('canvas');
-        canvas.width = PAGE_WIDTH;
-        canvas.height = PAGE_HEIGHT;
+        canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
+        ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
         pagesData.push(canvas);
         return ctx;
     }
@@ -816,47 +794,68 @@
         pagesData = [];
         window.cachedCursorPositions = [];
         let currentCtx = createNewPage();
-        
-        let x = MARGIN_X; 
-        let y = MARGIN_Y;
         let currentPageIndex = 0;
         
         const renderHeight = textRenderSize;
         const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
         const scale = renderHeight / drawCanvas.height;
+        cursorHeight = renderHeight;
 
-        // 全文字をループして座標とインデックスを記録・描画
+        // ★方向ごとの初期座標
+        let x, y;
+        if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; }
+        else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; }
+        else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
+
+        function newPageLogic() {
+            currentCtx = createNewPage(); currentPageIndex++;
+            if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; }
+            else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; }
+            else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
+        }
+
         for (let i = 0; i < typedSequence.length; i++) {
             const item = typedSequence[i];
-            
-            // この文字の「前」のカーソル位置を記録
-            window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight });
+            window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection });
 
             if (item === '改行') { 
-                x = MARGIN_X; 
-                y += renderHeight + lineSpacing;
-                if (isReadingMode) y += renderHeight * 0.3; 
-                
-                if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
-                    currentCtx = createNewPage();
-                    currentPageIndex++;
-                    x = MARGIN_X;
-                    y = MARGIN_Y;
+                if (textDirection === 'ltr') {
+                    x = MARGIN_X; y += renderHeight + lineSpacing;
+                    if (isReadingMode) y += renderHeight * 0.3; 
+                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                } else if (textDirection === 'rtl') {
+                    x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
+                    if (isReadingMode) y += renderHeight * 0.3; 
+                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                } else {
+                    y = MARGIN_Y; x -= renderHeight + lineSpacing;
+                    if (isReadingMode) x -= renderHeight * 0.3;
+                    if (x < MARGIN_X) newPageLogic();
                 }
                 continue; 
             }
             
             if (item === '空白') { 
-                x += renderHeight * 0.6; 
-                if (x > PAGE_WIDTH - MARGIN_X) {
-                    x = MARGIN_X;
-                    y += renderHeight + lineSpacing;
-                    if (isReadingMode) y += renderHeight * 0.3;
-                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
-                        currentCtx = createNewPage();
-                        currentPageIndex++;
-                        x = MARGIN_X;
-                        y = MARGIN_Y;
+                if (textDirection === 'ltr') {
+                    x += renderHeight * 0.6; 
+                    if (x > PAGE_WIDTH - MARGIN_X) {
+                        x = MARGIN_X; y += renderHeight + lineSpacing;
+                        if (isReadingMode) y += renderHeight * 0.3;
+                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                    }
+                } else if (textDirection === 'rtl') {
+                    x -= renderHeight * 0.6; 
+                    if (x < MARGIN_X) {
+                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
+                        if (isReadingMode) y += renderHeight * 0.3;
+                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                    }
+                } else {
+                    y += renderHeight * 0.6;
+                    if (y > PAGE_HEIGHT - MARGIN_Y) {
+                        y = MARGIN_Y; x -= renderHeight + lineSpacing;
+                        if (isReadingMode) x -= renderHeight * 0.3;
+                        if (x < MARGIN_X) newPageLogic();
                     }
                 }
                 continue; 
@@ -865,51 +864,65 @@
             const charData = charDictionary[item];
             if (charData) {
                 const renderWidth = charData.actualWidth * scale;
-                
-                if (x + renderWidth > PAGE_WIDTH - MARGIN_X) { 
-                    x = MARGIN_X; 
-                    y += renderHeight + lineSpacing;
-                    if (isReadingMode) y += renderHeight * 0.3;
-                    
-                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
-                        currentCtx = createNewPage();
-                        currentPageIndex++;
-                        x = MARGIN_X;
-                        y = MARGIN_Y;
-                    }
-                    // 折り返した場合は、カーソルの記録位置も新しい行の先頭に更新
-                    window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight };
-                }
-                
                 const sourceX = Math.max(0, getCharacterBoundsFromCtx(getContextForImage(charData.img), drawCanvas.width, drawCanvas.height).minX - charData.leftPad);
-                currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
                 
-                if (isReadingMode) {
-                    const fontSize = Math.max(10, renderHeight * 0.3);
-                    currentCtx.font = `${fontSize}px -apple-system, sans-serif`; 
-                    currentCtx.fillStyle = "#888888"; 
-                    currentCtx.textAlign = "center";
-                    currentCtx.fillText(charData.phoneme, x + renderWidth / 2, y + renderHeight + fontSize + 2);
+                if (textDirection === 'ltr') {
+                    if (x + renderWidth > PAGE_WIDTH - MARGIN_X) { 
+                        x = MARGIN_X; y += renderHeight + lineSpacing;
+                        if (isReadingMode) y += renderHeight * 0.3;
+                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
+                    }
+                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
+                    if (isReadingMode) {
+                        currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
+                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
+                        currentCtx.fillText(charData.phoneme, x + renderWidth / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
+                    }
+                    x += renderWidth; 
+                } 
+                else if (textDirection === 'rtl') {
+                    if (x - renderWidth < MARGIN_X) {
+                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
+                        if (isReadingMode) y += renderHeight * 0.3;
+                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
+                    }
+                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x - renderWidth, y, renderWidth, renderHeight);
+                    if (isReadingMode) {
+                        currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
+                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
+                        currentCtx.fillText(charData.phoneme, x - renderWidth / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
+                    }
+                    x -= renderWidth;
                 }
-                x += renderWidth; 
+                else { // ttb
+                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
+                        y = MARGIN_Y; x -= renderHeight + lineSpacing;
+                        if (isReadingMode) x -= renderHeight * 0.3;
+                        if (x < MARGIN_X) newPageLogic();
+                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
+                    }
+                    // 文字の横幅が異なる場合、列の中央に配置
+                    let cx = x + (renderHeight - renderWidth) / 2;
+                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, cx, y, renderWidth, renderHeight);
+                    if (isReadingMode) {
+                        currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
+                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle";
+                        currentCtx.fillText(charData.phoneme, x + renderHeight + 4, y + renderHeight / 2);
+                    }
+                    y += renderHeight;
+                }
             }
         }
         
-        // ★一番最後（入力末尾）のカーソル位置を記録
-        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight });
+        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection });
         
-        // セーフティチェック
         if (cursorIndex < 0) cursorIndex = 0;
         if (cursorIndex > typedSequence.length) cursorIndex = typedSequence.length;
         
-        // 現在のカーソル位置を設定
         const currentPos = window.cachedCursorPositions[cursorIndex];
-        if (currentPos) {
-            cursorX = currentPos.x;
-            cursorY = currentPos.y;
-            cursorPage = currentPos.page;
-            cursorHeight = currentPos.height;
-        }
+        if (currentPos) { cursorX = currentPos.x; cursorY = currentPos.y; cursorPage = currentPos.page; cursorHeight = currentPos.height; }
 
         updateOutputDOM();
         resetCursorBlink();
@@ -919,78 +932,70 @@
         const container = document.getElementById('documentContainer');
         
         while(container.children.length < pagesData.length) {
-            const c = document.createElement('canvas');
-            c.className = 'output-page';
-            c.width = PAGE_WIDTH;
-            c.height = PAGE_HEIGHT;
-            container.appendChild(c);
+            const c = document.createElement('canvas'); c.className = 'output-page';
+            c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c);
         }
-        while(container.children.length > pagesData.length) {
-            container.removeChild(container.lastChild);
-        }
+        while(container.children.length > pagesData.length) container.removeChild(container.lastChild);
 
         for(let i = 0; i < pagesData.length; i++) {
             const ctx = container.children[i].getContext('2d');
             ctx.drawImage(pagesData[i], 0, 0);
 
             if (isCursorVisible && cursorPage === i) {
-                ctx.beginPath(); 
-                ctx.strokeStyle = "#007aff"; 
-                ctx.lineWidth = 2;
-                ctx.moveTo(cursorX, cursorY + 2); 
-                ctx.lineTo(cursorX, cursorY + cursorHeight - 2); 
+                ctx.beginPath(); ctx.strokeStyle = "#007aff"; ctx.lineWidth = 2;
+                if (textDirection === 'ttb') {
+                    ctx.moveTo(cursorX + 2, cursorY); ctx.lineTo(cursorX + cursorHeight - 2, cursorY);
+                } else {
+                    ctx.moveTo(cursorX, cursorY + 2); ctx.lineTo(cursorX, cursorY + cursorHeight - 2);
+                }
                 ctx.stroke();
             }
         }
     }
 
-    // ★タップ・クリックした位置から一番近いカーソル位置を割り出して移動する処理
+    // ★ヒットテスト (方向別に最適化)
     function handleDocumentClick(e) {
         const canvas = e.target.closest('.output-page');
         if (!canvas || window.cachedCursorPositions.length === 0) return;
 
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const clickX = (e.clientX - rect.left) * scaleX;
-        const clickY = (e.clientY - rect.top) * scaleY;
+        const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX; const clickY = (e.clientY - rect.top) * scaleY;
 
         const container = document.getElementById('documentContainer');
         const pageIndex = Array.from(container.children).indexOf(canvas);
 
-        // クリックされたページのカーソル位置候補をすべて取得
-        const positionsOnPage = window.cachedCursorPositions
-            .map((pos, index) => ({ ...pos, index }))
-            .filter(pos => pos.page === pageIndex);
-
+        const positionsOnPage = window.cachedCursorPositions.map((pos, index) => ({ ...pos, index })).filter(pos => pos.page === pageIndex);
         if (positionsOnPage.length === 0) return;
 
-        // ① 一番近い「行(Y軸)」を探す
-        let closestY = positionsOnPage[0].y;
-        let minYDist = Infinity;
-        for (const pos of positionsOnPage) {
-            const dist = Math.abs(clickY - (pos.y + pos.height / 2)); 
-            if (dist < minYDist) {
-                minYDist = dist;
-                closestY = pos.y;
+        if (textDirection === 'ttb') {
+            let closestX = positionsOnPage[0].x; let minXDist = Infinity;
+            for (const pos of positionsOnPage) {
+                const dist = Math.abs(clickX - (pos.x + pos.height / 2)); 
+                if (dist < minXDist) { minXDist = dist; closestX = pos.x; }
             }
-        }
-
-        // ② その行の中で一番近い「横位置(X軸)」を探す
-        const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY);
-        let closestIndex = positionsOnLine[0].index;
-        let minXDist = Infinity;
-        for (const pos of positionsOnLine) {
-            const dist = Math.abs(clickX - pos.x);
-            if (dist < minXDist) {
-                minXDist = dist;
-                closestIndex = pos.index;
+            const positionsOnLine = positionsOnPage.filter(pos => pos.x === closestX);
+            let closestIndex = positionsOnLine[0].index; let minYDist = Infinity;
+            for (const pos of positionsOnLine) {
+                const dist = Math.abs(clickY - pos.y);
+                if (dist < minYDist) { minYDist = dist; closestIndex = pos.index; }
             }
+            cursorIndex = closestIndex;
+        } else {
+            let closestY = positionsOnPage[0].y; let minYDist = Infinity;
+            for (const pos of positionsOnPage) {
+                const dist = Math.abs(clickY - (pos.y + pos.height / 2)); 
+                if (dist < minYDist) { minYDist = dist; closestY = pos.y; }
+            }
+            const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY);
+            let closestIndex = positionsOnLine[0].index; let minXDist = Infinity;
+            for (const pos of positionsOnLine) {
+                const dist = Math.abs(clickX - pos.x);
+                if (dist < minXDist) { minXDist = dist; closestIndex = pos.index; }
+            }
+            cursorIndex = closestIndex;
         }
-
-        cursorIndex = closestIndex;
-        renderOutputToCache(); // 再描画してカーソルを移動
+        renderOutputToCache(); 
     }
 
     function startCursorBlink() {
@@ -1011,33 +1016,52 @@
         const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0); return tempCtx;
     }
 
-    function downloadImage() {
+    // ★画像保存 (結合)
+    function downloadImageCombined() {
         if (pagesData.length === 0) return;
         const combinedCanvas = document.createElement('canvas');
-        combinedCanvas.width = PAGE_WIDTH;
-        combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
+        combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
         const ctx = combinedCanvas.getContext('2d');
-        
         pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
 
         try {
             combinedCanvas.toBlob(function(blob) {
                 if (!blob) throw new Error("Blob creation failed");
                 const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url; link.download = 'artificial_text_document.png';
+                const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_document.png';
                 document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
             }, 'image/png');
         } catch (e) {
-            const dataUrl = combinedCanvas.toDataURL("image/png");
-            const win = window.open();
-            if (win) {
-                win.document.write('<p style="font-size:14px; text-align:center;">画像を長押しして保存してください。</p>');
-                win.document.write('<img src="' + dataUrl + '" style="max-width:100%; border:1px solid #ccc;"/>');
-            } else {
-                alert("ダウンロードがブロックされました。ブラウザの設定を確認してください。");
-            }
+            const dataUrl = combinedCanvas.toDataURL("image/png"); const win = window.open();
+            if (win) { win.document.write('<p style="font-size:14px; text-align:center;">画像を長押しして保存してください。</p><img src="' + dataUrl + '" style="max-width:100%; border:1px solid #ccc;"/>'); } 
+            else { alert("ダウンロードがブロックされました。"); }
         }
+    }
+
+    // ★画像保存 (個別)
+    function downloadPagesIndividually() {
+        if (pagesData.length === 0) return;
+        
+        pagesData.forEach((canvas, index) => {
+            // スマホブラウザのブロックを回避するため、少しずつ時間をずらして保存
+            setTimeout(() => {
+                try {
+                    canvas.toBlob(function(blob) {
+                        if (!blob) throw new Error("Blob creation failed");
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `artificial_text_page_${index + 1}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 'image/png');
+                } catch (e) {
+                    if (index === 0) alert("個別ダウンロードがブロックされました。ブラウザの設定を確認してください。");
+                }
+            }, index * 300); // 0.3秒間隔
+        });
     }
 </script>
 </body>
