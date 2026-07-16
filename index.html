@@ -2,8 +2,18 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>人工文字作成エディタ (prototype)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>人工文字作成エディタ (スマホ・レスポンシブ対応版)</title>
+    
+    <!-- スマホでドラッグ&ドロップを機能させるための外部ライブラリ -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script>
+        // スマホ用ドラッグ＆ドロップの有効化
+        MobileDragDrop.polyfill({ holdToDrag: 100 }); // 誤操作防止のため、0.1秒長押しでドラッグ開始
+        window.addEventListener('touchmove', function() {}, {passive: false});
+    </script>
+
     <style>
         :root {
             --ios-bg: #d1d5db;
@@ -12,35 +22,51 @@
             --ios-key-text: #000000;
             --ios-sys-key: #b4b8c1;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f4f4f5; }
+        
+        /* スマホ向けの基本リセット */
+        * {
+            -webkit-tap-highlight-color: transparent; /* タップ時の青い点滅を消す */
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            padding: 15px; max-width: 800px; margin: auto; background-color: #f4f4f5; 
+            overscroll-behavior-y: none; /* スワイプダウンでのリロードを防止 */
+        }
+        
         .section { margin-bottom: 20px; padding: 15px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
+        /* キャンバスのスマホ対応 */
         #drawCanvas { 
-            border: 1px solid #ccc; 
-            background-color: #fff; 
+            border: 1px solid #ccc; background-color: #fff; 
             background-image: linear-gradient(to bottom, transparent 64%, #cce0ff 64%, #cce0ff 66%, transparent 66%);
-            border-radius: 8px; 
-            touch-action: none; 
-            cursor: crosshair; 
+            border-radius: 8px; touch-action: none; cursor: crosshair; 
         }
-        #outputCanvas { border: 1px solid #ccc; background: #fff; border-radius: 8px; touch-action: none; cursor: crosshair; }
+        #outputCanvas { 
+            border: 1px solid #ccc; background: #fff; border-radius: 8px; 
+            width: 100%; max-width: 600px; height: auto; /* 画面幅に合わせて自動縮小 */
+        }
         
+        /* キーボード全体（はみ出し防止と自動スケール用） */
         .keyboard-wrapper { 
-            background: var(--ios-bg); padding: 10px 10px; border-radius: 12px; 
+            background: var(--ios-bg); padding: 10px; border-radius: 12px; 
             margin-top: 10px; transition: background 0.3s;
-            display: flex; flex-direction: column; align-items: flex-start; 
-            width: max-content; margin-left: auto; margin-right: auto;
+            display: flex; flex-direction: column; align-items: center; 
+            margin-left: auto; margin-right: auto;
+            transform-origin: top center;
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
         
         .keyboard-row { display: flex; justify-content: flex-start; margin-bottom: 10px; width: max-content; }
-        .keyboard-container { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; width: 100%; min-width: 380px; }
-        .system-row { display: flex; justify-content: space-between; width: 100%; margin-top: 5px; }
+        .keyboard-container { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; width: 100%; min-width: 370px; }
+        .system-row { display: flex; justify-content: space-between; width: 100%; margin-top: 5px; min-width: 370px; }
         
         .key-btn {
             position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: var(--ios-key); border-radius: 6px; box-shadow: 0 1px 0 var(--ios-key-shadow);
-            cursor: pointer; padding: 8px 3px; min-width: 32px; height: 42px; margin: 0 3px; user-select: none;
+            cursor: pointer; padding: 8px 3px; min-width: 32px; height: 42px; margin: 0 3px; 
+            user-select: none; -webkit-user-select: none; touch-action: manipulation;
             transition: transform 0.1s;
         }
         .key-btn:active { background: #e5e5ea; transform: scale(0.95); }
@@ -63,66 +89,66 @@
         .key-edit-mode.movable:active { cursor: grabbing; }
         .key-btn.drag-over-swap { border: 2px solid #007aff; transform: scale(1.1); z-index: 10; background: #e5f0ff; }
         
+        /* 削除・複製バッジをスマホで押しやすいサイズ(22px)に拡大 */
         .action-badge {
-            position: absolute; top: -6px; width: 16px; height: 16px; border-radius: 50%;
+            position: absolute; top: -8px; width: 22px; height: 22px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: bold; color: white; cursor: pointer; z-index: 10;
+            font-size: 14px; font-weight: bold; color: white; cursor: pointer; z-index: 10;
         }
-        .delete-badge { right: -6px; background: #ff3b30; }
-        .duplicate-badge { left: -6px; background: #34c759; line-height: 14px; }
+        .delete-badge { right: -8px; background: #ff3b30; }
+        .duplicate-badge { left: -8px; background: #34c759; line-height: 14px; }
         
         .drop-slot {
-            width: 12px; background: rgba(0, 122, 255, 0.05); border: 1px dashed rgba(0, 122, 255, 0.3);
+            width: 14px; background: rgba(0, 122, 255, 0.05); border: 1px dashed rgba(0, 122, 255, 0.3);
             border-radius: 4px; margin: 0 1px; display: none; transition: all 0.2s;
         }
         .keyboard-wrapper.is-editing .drop-slot { display: block; }
-        .drop-slot.drag-over { background: rgba(0, 122, 255, 0.3); width: 34px; border-style: solid; }
+        .drop-slot.drag-over { background: rgba(0, 122, 255, 0.3); width: 36px; border-style: solid; }
 
         .row-drop-area {
             width: 90%; height: 40px; margin: 0 auto;
             border: 2px dashed rgba(0, 122, 255, 0.4); border-radius: 8px;
             display: flex; justify-content: center; align-items: center;
             color: #007aff; font-size: 13px; font-weight: bold; background: rgba(0, 122, 255, 0.05);
-            cursor: pointer;
+            cursor: pointer; touch-action: manipulation;
         }
         .row-drop-area.drag-over { background: rgba(0, 122, 255, 0.2); border-style: solid; }
         
         @keyframes jiggle { 0% { transform: rotate(-1deg); } 100% { transform: rotate(1deg); } }
 
         .controls { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        button { padding: 8px 12px; border: none; border-radius: 6px; background: #007aff; color: white; cursor: pointer; font-weight: 500; }
+        button { padding: 8px 12px; border: none; border-radius: 6px; background: #007aff; color: white; cursor: pointer; font-weight: 500; touch-action: manipulation; }
         button:hover { background: #0056b3; }
         .btn-secondary { background: #e5e5ea; color: #007aff; }
         .btn-danger { background: #ffcccc; border: 1px solid #ff9999; color: #cc0000; }
         .btn-warning { background: #ff9500; }
-        input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 120px; }
+        input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 120px; font-size: 16px; /* iOS自動ズーム防止 */ }
         input[type="file"] { padding: 8px; font-size: 0.9em; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
-        .tab { padding: 6px 12px; border-radius: 16px; background: #e5e5ea; cursor: pointer; font-size: 0.9em; }
+        .tab { padding: 6px 12px; border-radius: 16px; background: #e5e5ea; cursor: pointer; font-size: 0.9em; touch-action: manipulation; }
         .tab.active { background: #007aff; color: white; }
 
         #editBanner {
             display: none; background: #e5f0ff; padding: 10px; border-radius: 8px;
             margin-bottom: 10px; text-align: center; font-weight: bold; color: #0056b3;
-            border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.9em;
+            border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
         }
     </style>
 </head>
 <body>
 
-    <!-- 0. データ共有エリア -->
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
         <h3>0. 辞書データの共有（エクスポート / インポート）</h3>
-        <p style="font-size: 0.9em; color: #555;">作った文字データとキーボード配列をファイルとして保存したり、友人からもらったデータを読み込んだりできます。</p>
+        <p style="font-size: 0.85em; color: #555;">作った文字データとキーボード配列をファイルとして保存したり、読み込んだりできます。</p>
         <div class="controls">
-            <button onclick="exportData()">作成したデータをダウンロード (共有用)</button>
+            <button onclick="exportData()">作成データをダウンロード</button>
             <br><br>
             <label for="importFile" style="font-size: 0.9em; font-weight: bold;">データを取り込む:</label>
             <input type="file" id="importFile" accept=".json" onchange="importData(event)">
         </div>
         <div class="controls" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-            <button class="btn-danger" onclick="clearAllData()">ブラウザ内のデータをすべてリセット</button>
+            <button class="btn-danger" onclick="clearAllData()">ブラウザ内の全データリセット</button>
         </div>
     </div>
 
@@ -132,7 +158,7 @@
         <div class="controls">
             <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
             <button onclick="saveCharacter()">登録 / 上書き</button>
-            <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す (クリア)</button>
+            <button class="btn-secondary" onclick="clearDrawCanvas()">書き直す</button>
         </div>
     </div>
 
@@ -147,7 +173,7 @@
         </div>
         
         <div id="editBanner">
-            [編集] 行の両端に追加でき、枠の上の文字は直接スワップ(交換)できます。<br>※システムキー(↑、123、ページ2)の上に文字を落とすと、そのページへ送れます。
+            [編集] 長押しでドラッグ移動・文字の上に落とすと交換できます。<br>※システムキー(↑、123、ページ2)の上に落とすとページ間移動します。
         </div>
 
         <div class="keyboard-wrapper" id="keyboardWrapper">
@@ -165,14 +191,14 @@
         <h3>3. 完成した文章</h3>
         <canvas id="outputCanvas" width="600" height="300"></canvas>
         <div class="controls">
-            <button class="btn-danger" style="background: #ff3b30; color: white;" onclick="clearOutput()">文章をまるごと消去</button>
+            <button class="btn-danger" style="background: #ff3b30; color: white; border: none;" onclick="clearOutput()">文章をまるごと消去</button>
             <button onclick="downloadImage()">画像として保存</button>
         </div>
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V12 = 'artificial_text_dict_v12';
-    const STORAGE_KEY_LAYOUTS_V12 = 'artificial_text_layouts_v12';
+    const STORAGE_KEY_DICT_V13 = 'artificial_text_dict_v13';
+    const STORAGE_KEY_LAYOUTS_V13 = 'artificial_text_layouts_v13';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -189,8 +215,8 @@
     const oCtx = outputCanvas.getContext('2d');
     const offscreenCanvas = document.createElement('canvas');
     const offCtx = offscreenCanvas.getContext('2d');
-    offscreenCanvas.width = outputCanvas.width;
-    offscreenCanvas.height = outputCanvas.height;
+    offscreenCanvas.width = 600;  // 内部解像度を固定（CSSで縮小表示）
+    offscreenCanvas.height = 300;
 
     let cursorX = 10; let cursorY = 10; let cursorHeight = 50;
     let isCursorVisible = true;
@@ -219,78 +245,49 @@
         ]
     };
 
-    // --- 0. データ共有 (エクスポート/インポート) ---
+    // --- 0. データ共有 ---
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V12);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V12);
-        
-        if (!dictData || dictData === '{}') {
-            alert("エクスポートするデータがありません！先に文字を登録してください。");
-            return;
-        }
-
-        const exportObj = {
-            dict: JSON.parse(dictData),
-            layouts: JSON.parse(layoutData)
-        };
-
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V13);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V13);
+        if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
+        const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'artificial_text_keyboard_v12.json';
-        link.click();
-        URL.revokeObjectURL(url);
+        const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_keyboard.json'; link.click(); URL.revokeObjectURL(url);
     }
 
     function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
+        const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-                
                 if (importedData.dict && importedData.layouts) {
-                    // 最新バージョン (V12) のインポート
-                    localStorage.setItem(STORAGE_KEY_DICT_V12, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V12, JSON.stringify(importedData.layouts));
-                    alert("キーボードデータを取り込みました！画面を更新して反映します。");
+                    localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(importedData.layouts));
                 } else {
-                    // 初期バージョン (V1) の互換性サポート
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V12)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V12)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
-                    
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-                            currentDict[newId] = {
-                                phoneme: phoneme, url: importedData[phoneme],
-                                actualWidth: 50, leftPad: 2, rightPad: 2
-                            };
+                            currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50, leftPad: 2, rightPad: 2 };
                             if (currentLayouts.custom1.length === 0) currentLayouts.custom1.push([]);
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V12, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V12, JSON.stringify(currentLayouts));
-                    alert("初期バージョンのデータを最新形式に変換して取り込みました！");
+                    localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(currentLayouts));
                 }
-                location.reload();
-            } catch (error) {
-                alert("読み込みに失敗しました。正しいデータファイルを選択してください。");
-                console.error(error);
-            }
+                alert("データを取り込みました！"); location.reload();
+            } catch (error) { alert("読み込みに失敗しました。"); }
         };
         reader.readAsText(file);
     }
 
     function clearAllData() {
-        if (confirm("登録したすべての文字データと配列が消えます。本当によろしいですか？\n（事前にダウンロードしておくことをおすすめします）")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V12);
-            localStorage.removeItem(STORAGE_KEY_LAYOUTS_V12);
-            location.reload();
+        if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
+            localStorage.removeItem(STORAGE_KEY_DICT_V13); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V13); location.reload();
         }
     }
 
@@ -312,9 +309,7 @@
         ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
             for(let r = 0; r < 4; r++) {
                 layouts[page][r] = layouts[page][r].filter(v => !isGhost(v) && v !== '');
-                if (r === 3) {
-                    layouts[page][r] = layouts[page][r].filter(v => !isBaseUnregistered(v));
-                }
+                if (r === 3) layouts[page][r] = layouts[page][r].filter(v => !isBaseUnregistered(v));
             }
         });
     }
@@ -324,12 +319,9 @@
             for(let r = 0; r < 3; r++) {
                 const def = DEFAULT_LAYOUTS[page][r];
                 const row = layouts[page][r];
-                
                 def.forEach((letter, i) => {
                     let found = row.includes(letter);
-                    if (!found) {
-                        found = row.some(val => typeof val === 'string' && val.startsWith('id-') && charDictionary[val] && charDictionary[val].phoneme === letter);
-                    }
+                    if (!found) found = row.some(val => typeof val === 'string' && val.startsWith('id-') && charDictionary[val] && charDictionary[val].phoneme === letter);
                     if (!found) {
                         let insertIdx = i;
                         if (i > 0) {
@@ -344,36 +336,28 @@
         });
     }
 
-    // --- 初期化 ---
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V12)) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V12));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || JSON.parse(localStorage.getItem('artificial_text_dict_v12')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v12'));
 
-        if (savedLayouts) {
-            layouts = savedLayouts;
-        } else {
+        if (savedLayouts) layouts = savedLayouts;
+        else {
             layouts.lower = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.lower));
             layouts.upper = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.upper));
             layouts.numbers = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.numbers));
             layouts.symbols = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS.symbols));
-            layouts.custom1 = [[]];
-            layouts.custom2 = [[]];
+            layouts.custom1 = [[]]; layouts.custom2 = [[]];
+        }
+
+        const totalKeys = Object.keys(savedDict).length;
+        if (totalKeys === 0) { 
+            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
+            renderKeyboard(); renderOutputToCache(); startCursorBlink(); return; 
         }
 
         let loadedCount = 0;
-        const totalKeys = Object.keys(savedDict).length;
-
-        if (totalKeys === 0) { 
-            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            renderKeyboard(); 
-            renderOutputToCache(); 
-            startCursorBlink(); 
-            return; 
-        }
-
         for (const id in savedDict) {
-            const data = savedDict[id];
-            const img = new Image();
+            const data = savedDict[id]; const img = new Image();
             img.onload = () => {
                 charDictionary[id] = { img: img, actualWidth: data.actualWidth, leftPad: data.leftPad, rightPad: data.rightPad, url: data.url, phoneme: data.phoneme };
                 loadedCount++;
@@ -384,6 +368,9 @@
             };
             img.src = data.url;
         }
+        
+        // 画面リサイズ時にキーボードの幅をスマホ用に調整するイベント
+        window.addEventListener('resize', adjustKeyboardScale);
     };
 
     function saveDataToStorage() {
@@ -391,8 +378,8 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V12, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V12, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(layouts));
     }
 
     // --- 1. お絵かき・登録 ---
@@ -401,6 +388,7 @@
     let isDrawing = false;
     dCtx.strokeStyle = "black"; dCtx.lineWidth = 4; dCtx.lineCap = "round";
 
+    // Pointer events works for both mouse and touch, touch-action:none prevents scroll
     drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); dCtx.moveTo(e.offsetX, e.offsetY); });
     drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; dCtx.lineTo(e.offsetX, e.offsetY); dCtx.stroke(); });
     window.addEventListener('pointerup', () => { isDrawing = false; });
@@ -436,23 +424,15 @@
 
         let targetId = currentEditingId;
         let isNew = false;
-        if (!targetId || !charDictionary[targetId]) {
-            targetId = generateId();
-            isNew = true;
-        }
+        if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
 
         const img = new Image();
         img.onload = () => {
-            charDictionary[targetId] = { 
-                phoneme: phoneme, img: img, 
-                actualWidth: actualWidth + leftPad + rightPad, 
-                leftPad: leftPad, rightPad: rightPad, url: dataUrl 
-            };
-
+            charDictionary[targetId] = { phoneme: phoneme, img: img, actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, url: dataUrl };
             if (isNew) {
                 if (mainTab === 'custom') {
                     const cPage = 'custom' + customPageNum;
-                    if (layouts[cPage].length === 0) layouts[cPage].push([]);
+                    if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
                     layouts[cPage][layouts[cPage].length - 1].push(targetId);
                 }
                 let foundInQwerty = false;
@@ -463,10 +443,10 @@
                     }
                 });
                 if (!foundInQwerty && mainTab === 'qwerty') {
+                    if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = [];
                     layouts[qwertyPage][3].push(targetId);
                 }
             }
-            
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
             renderKeyboard(); clearDrawCanvas();
             if(isEditMode) toggleEditMode();
@@ -474,7 +454,28 @@
         img.src = dataUrl;
     }
 
-    // --- 2. UI切替 ---
+    // --- 2. スマホ用自動スケール調整 ---
+    function adjustKeyboardScale() {
+        const wrapper = document.getElementById('keyboardWrapper');
+        if (!wrapper) return;
+        const containerWidth = wrapper.parentElement.clientWidth;
+        // QWERTYの理想的な横幅は約390px
+        const targetWidth = 390; 
+        
+        if (containerWidth < targetWidth) {
+            const scale = containerWidth / targetWidth;
+            wrapper.style.transform = `scale(${scale})`;
+            wrapper.style.width = `${targetWidth}px`;
+            // 縮小した分の余白を詰める
+            wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
+        } else {
+            wrapper.style.transform = 'none';
+            wrapper.style.width = 'max-content';
+            wrapper.style.marginBottom = '0';
+        }
+    }
+
+    // --- UI切替 ---
     function switchMainLayout(tab) {
         mainTab = tab;
         document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
@@ -482,17 +483,10 @@
         renderKeyboard();
     }
 
-    function toggleShiftPage() {
-        qwertyPage = (qwertyPage === 'lower') ? 'upper' : 'lower';
-        renderKeyboard();
-    }
-
+    function toggleShiftPage() { qwertyPage = (qwertyPage === 'lower') ? 'upper' : 'lower'; renderKeyboard(); }
     function toggleNumbersPage() {
-        if (qwertyPage === 'numbers' || qwertyPage === 'symbols') {
-            qwertyPage = 'lower';
-        } else {
-            qwertyPage = 'numbers';
-        }
+        if (qwertyPage === 'numbers' || qwertyPage === 'symbols') qwertyPage = 'lower';
+        else qwertyPage = 'numbers';
         renderKeyboard();
     }
 
@@ -506,27 +500,20 @@
         const wrapper = document.getElementById('keyboardWrapper');
         if (isEditMode) wrapper.classList.add('is-editing');
         else wrapper.classList.remove('is-editing');
-        
         renderKeyboard();
     }
 
-    // --- 2.5 ドラッグ＆ドロップ処理 ---
+    // --- ドラッグ＆ドロップ処理 ---
     function createDropSlot(layoutName, rowIndex, slotIndex) {
         const slot = document.createElement('div');
         slot.className = 'drop-slot';
         slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); };
         slot.ondragleave = () => { slot.classList.remove('drag-over'); };
-        slot.ondrop = (e) => {
-            e.preventDefault();
-            slot.classList.remove('drag-over');
-            handleInsertDrop(layoutName, rowIndex, slotIndex);
-        };
+        slot.ondrop = (e) => { e.preventDefault(); slot.classList.remove('drag-over'); handleInsertDrop(layoutName, rowIndex, slotIndex); };
         return slot;
     }
 
-    function getLayoutArray(layoutName, rowIndex) {
-        return layouts[layoutName][rowIndex];
-    }
+    function getLayoutArray(layoutName, rowIndex) { return layouts[layoutName][rowIndex]; }
 
     function handleInsertDrop(targetLayout, targetRow, targetIndex) {
         if (!dragSource) return;
@@ -534,15 +521,12 @@
         const item = sourceArray.splice(dragSource.index, 1)[0]; 
         
         let adjustedTarget = targetIndex;
-        if (dragSource.layout === targetLayout && dragSource.row === targetRow && dragSource.index < targetIndex) {
-            adjustedTarget -= 1;
-        }
+        if (dragSource.layout === targetLayout && dragSource.row === targetRow && dragSource.index < targetIndex) adjustedTarget -= 1;
         
         const targetArray = getLayoutArray(targetLayout, targetRow);
         targetArray.splice(adjustedTarget, 0, item);
         
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-        renderKeyboard();
+        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
 
     function handleSwapDrop(targetLayout, targetRow, targetIndex) {
@@ -552,20 +536,14 @@
         
         const sourceItem = sourceArray[dragSource.index];
         const targetItem = targetArray[targetIndex];
-        
         const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
         
         if (isBaseUnregistered(targetItem)) {
-            sourceArray.splice(dragSource.index, 1);
-            targetArray[targetIndex] = sourceItem;
+            sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem;
         } else {
-            const temp = targetArray[targetIndex];
-            targetArray[targetIndex] = sourceItem;
-            sourceArray[dragSource.index] = temp;
+            const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp;
         }
-        
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-        renderKeyboard();
+        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
 
     function handleSystemDrop(targetPage) {
@@ -581,23 +559,16 @@
             layouts[targetPage][3].push(item);
             qwertyPage = targetPage; 
         }
-        
-        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-        renderKeyboard();
+        cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
 
     function setupSystemDropTarget(element, targetPage) {
         if (!isEditMode) return;
         element.ondragover = (e) => { e.preventDefault(); element.classList.add('drag-over'); };
         element.ondragleave = () => { element.classList.remove('drag-over'); };
-        element.ondrop = (e) => {
-            e.preventDefault();
-            element.classList.remove('drag-over');
-            handleSystemDrop(targetPage);
-        };
+        element.ondrop = (e) => { e.preventDefault(); element.classList.remove('drag-over'); handleSystemDrop(targetPage); };
     }
 
-    // --- 2.6 キーボード描画 ---
     function renderKeyboard() {
         const container = document.getElementById('keysContainer');
         container.innerHTML = '';
@@ -615,48 +586,27 @@
 
         if (mainTab === 'custom') {
             const cPage = 'custom' + customPageNum;
-            
-            if (isEditMode) {
-                if (layouts[cPage].length === 0 || layouts[cPage][layouts[cPage].length - 1].length > 0) {
-                    layouts[cPage].push([]);
-                }
-            } else {
-                while (layouts[cPage].length > 0 && layouts[cPage][layouts[cPage].length - 1].length === 0) {
-                    layouts[cPage].pop();
-                }
-            }
+            if (isEditMode) { if (layouts[cPage].length === 0 || layouts[cPage][layouts[cPage].length - 1].length > 0) layouts[cPage].push([]); } 
+            else { while (layouts[cPage].length > 0 && layouts[cPage][layouts[cPage].length - 1].length === 0) layouts[cPage].pop(); }
 
             layouts[cPage].forEach((rowArray, rowIndex) => {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'keyboard-container';
-                
-                if (isEditMode && rowArray.length > 0) {
-                    rowDiv.appendChild(createDropSlot(cPage, rowIndex, 0));
-                }
+                const rowDiv = document.createElement('div'); rowDiv.className = 'keyboard-container';
+                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(cPage, rowIndex, 0));
                 
                 rowArray.forEach((item, index) => {
                     rowDiv.appendChild(createKeyElement(item, cPage, rowIndex, index));
-                    if (isEditMode) {
-                        rowDiv.appendChild(createDropSlot(cPage, rowIndex, index + 1));
-                    }
+                    if (isEditMode) rowDiv.appendChild(createDropSlot(cPage, rowIndex, index + 1));
                 });
 
                 if (rowIndex === layouts[cPage].length - 1 && rowArray.length === 0 && isEditMode) {
-                    const dropArea = document.createElement('div');
-                    dropArea.className = 'row-drop-area';
-                    dropArea.textContent = '+ ここにキーを追加 (新しい列)';
+                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (新しい列)';
                     dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); };
                     dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
-                    dropArea.ondrop = (e) => {
-                        e.preventDefault(); dropArea.classList.remove('drag-over');
-                        handleInsertDrop(cPage, rowIndex, 0);
-                    };
+                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); };
                     rowDiv.appendChild(dropArea);
                 }
 
-                if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) {
-                    container.appendChild(rowDiv);
-                }
+                if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
             });
 
         } else if (mainTab === 'qwerty') {
@@ -673,58 +623,40 @@
                     const shiftBtn = document.createElement('div');
                     shiftBtn.className = 'key-btn key-system sys-drop-target';
                     if (qwertyPage === 'numbers') {
-                        shiftBtn.textContent = '#+=';
-                        shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); };
-                        setupSystemDropTarget(shiftBtn, 'symbols');
+                        shiftBtn.textContent = '#+='; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
                     } else if (qwertyPage === 'symbols') {
-                        shiftBtn.textContent = '123';
-                        shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); };
-                        setupSystemDropTarget(shiftBtn, 'numbers');
+                        shiftBtn.textContent = '123'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
                     } else {
-                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎';
-                        shiftBtn.onclick = toggleShiftPage;
-                        setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
+                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
                     }
                     rowDiv.appendChild(shiftBtn);
                 }
 
-                if (isEditMode && rowArray.length > 0) {
-                    rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
-                }
+                if (isEditMode && rowArray.length > 0) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, 0));
                 
                 rowArray.forEach((item, index) => {
                     rowDiv.appendChild(createKeyElement(item, qwertyPage, rowIndex, index));
-                    if (isEditMode && index === rowArray.length - 1) {
-                        rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1));
-                    }
+                    if (isEditMode && index === rowArray.length - 1) rowDiv.appendChild(createDropSlot(qwertyPage, rowIndex, index + 1));
                 });
 
                 if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
-                    const dropArea = document.createElement('div');
-                    dropArea.className = 'row-drop-area';
-                    dropArea.textContent = '+ ここにキーを追加 (4列目)';
+                    const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (4列目)';
                     dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); };
                     dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
-                    dropArea.ondrop = (e) => {
-                        e.preventDefault(); dropArea.classList.remove('drag-over');
-                        handleInsertDrop(qwertyPage, 3, 0);
-                    };
+                    dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); };
                     rowDiv.appendChild(dropArea);
                 }
 
                 if (rowIndex === 2) {
-                    const bsBtn = document.createElement('div');
-                    bsBtn.className = 'key-btn key-system';
-                    bsBtn.textContent = '⌫';
-                    bsBtn.onclick = backspace;
-                    rowDiv.appendChild(bsBtn);
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.onclick = backspace; rowDiv.appendChild(bsBtn);
                 }
 
-                if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) {
-                    container.appendChild(rowDiv);
-                }
+                if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
             });
         }
+        
+        // 描画後にスマホ用の縮小処理を実行
+        adjustKeyboardScale();
     }
 
     function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
@@ -732,65 +664,42 @@
         const charData = isRegistered ? charDictionary[itemValue] : null;
         const displayLabel = isRegistered ? charData.phoneme : itemValue;
         
-        const btn = document.createElement('div');
-        btn.className = 'key-btn';
+        const btn = document.createElement('div'); btn.className = 'key-btn';
         if (!isRegistered) btn.classList.add('key-empty');
         
         if (isEditMode && isRegistered) {
             btn.classList.add('key-edit-mode', 'movable');
             btn.draggable = true;
-            btn.ondragstart = (e) => {
-                dragSource = { layout: layoutName, row: rowIndex, index: keyIndex, item: itemValue };
-                e.dataTransfer.effectAllowed = 'move';
-            };
+            btn.ondragstart = (e) => { dragSource = { layout: layoutName, row: rowIndex, index: keyIndex, item: itemValue }; e.dataTransfer.effectAllowed = 'move'; };
         }
 
         if (isEditMode) {
             btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-swap'); };
             btn.ondragleave = () => { btn.classList.remove('drag-over-swap'); };
-            btn.ondrop = (e) => {
-                e.preventDefault();
-                btn.classList.remove('drag-over-swap');
-                handleSwapDrop(layoutName, rowIndex, keyIndex);
-            };
+            btn.ondrop = (e) => { e.preventDefault(); btn.classList.remove('drag-over-swap'); handleSwapDrop(layoutName, rowIndex, keyIndex); };
         }
 
         if (isRegistered) {
-            const imgElement = document.createElement('img');
-            imgElement.src = charData.url;
-            btn.appendChild(imgElement);
+            const imgElement = document.createElement('img'); imgElement.src = charData.url; btn.appendChild(imgElement);
         }
         
-        const label = document.createElement('span');
-        label.className = 'key-label';
-        label.textContent = displayLabel;
+        const label = document.createElement('span'); label.className = 'key-label'; label.textContent = displayLabel;
         if (!isRegistered) label.style.fontSize = '1.2em';
         btn.appendChild(label);
 
         btn.onclick = () => {
             if (isEditMode && isRegistered) {
-                clearDrawCanvas();
-                dCtx.drawImage(charData.img, 0, 0);
-                document.getElementById('phonemeInput').value = charData.phoneme;
-                currentEditingId = itemValue; 
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                clearDrawCanvas(); dCtx.drawImage(charData.img, 0, 0); document.getElementById('phonemeInput').value = charData.phoneme; currentEditingId = itemValue; window.scrollTo({ top: 0, behavior: 'smooth' });
             } else if (!isEditMode && isRegistered) {
                 typeCharacter(itemValue);
             }
         };
 
         if (isEditMode && isRegistered) {
-            const delBadge = document.createElement('div');
-            delBadge.className = 'action-badge delete-badge';
-            delBadge.textContent = '×';
-            delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); };
-            btn.appendChild(delBadge);
-
-            const dupBadge = document.createElement('div');
-            dupBadge.className = 'action-badge duplicate-badge';
-            dupBadge.textContent = '+';
-            dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); };
-            btn.appendChild(dupBadge);
+            const delBadge = document.createElement('div'); delBadge.className = 'action-badge delete-badge'; delBadge.textContent = '×';
+            delBadge.onclick = (e) => { e.stopPropagation(); deleteCharacter(itemValue); }; btn.appendChild(delBadge);
+            const dupBadge = document.createElement('div'); dupBadge.className = 'action-badge duplicate-badge'; dupBadge.textContent = '+';
+            dupBadge.onclick = (e) => { e.stopPropagation(); duplicateCharacter(itemValue, layoutName, rowIndex, keyIndex); }; btn.appendChild(dupBadge);
         }
         return btn;
     }
@@ -798,35 +707,20 @@
     function deleteCharacter(id) {
         const phonemeStr = charDictionary[id].phoneme;
         if(confirm(`「${phonemeStr}」を削除しますか？`)) {
-            ['custom1', 'custom2'].forEach(cPage => {
-                layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v));
-            });
-            ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
-                for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); }
-            });
-            delete charDictionary[id];
-            cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            renderKeyboard();
+            ['custom1', 'custom2'].forEach(cPage => { layouts[cPage] = layouts[cPage].map(row => row.map(v => v === id ? phonemeStr : v)); });
+            ['lower', 'upper', 'numbers', 'symbols'].forEach(page => { for(let r=0; r<4; r++) { layouts[page][r] = layouts[page][r].map(v => v === id ? phonemeStr : v); } });
+            delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
         }
     }
 
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
-        const newId = generateId();
-        charDictionary[newId] = { ...charDictionary[id] };
+        const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
-        
-        if (layoutName.startsWith('custom')) {
-            layouts.lower[3].push(newId);
-        } else {
-            const cPage = 'custom' + customPageNum;
-            if (layouts[cPage].length === 0) layouts[cPage].push([]);
-            layouts[cPage][layouts[cPage].length - 1].push(newId);
-        }
-        
+        if (layoutName.startsWith('custom')) { layouts.lower[3].push(newId); } 
+        else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
         saveDataToStorage(); renderKeyboard();
     }
 
-    // --- 3. 文章生成と出力キャンバスの処理 ---
     function typeCharacter(id) { typedSequence.push(id); renderOutputToCache(); }
     function addFunctionKey(funcType) { typedSequence.push(funcType); renderOutputToCache(); }
     function backspace() { if(typedSequence.length > 0) { typedSequence.pop(); renderOutputToCache(); } }
@@ -875,10 +769,8 @@
     }
     
     function getContextForImage(img) {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = drawCanvas.width; tempCanvas.height = drawCanvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(img, 0, 0); return tempCtx;
+        const tempCanvas = document.createElement('canvas'); tempCanvas.width = drawCanvas.width; tempCanvas.height = drawCanvas.height;
+        const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0); return tempCtx;
     }
 
     function clearOutput() { typedSequence = []; renderOutputToCache(); }
