@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (スマホD&D・追加バグ完全修正版)</title>
+    <title>人工文字作成エディタ (表示最適化・スマホ保存対応版)</title>
     
-    <!-- ★修正: よりスマホ(iOS)に強いドラッグ＆ドロップ変換ライブラリに変更 -->
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
     <style>
@@ -45,26 +44,30 @@
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
         
-        .keyboard-wrapper.hide-key-labels .key-btn:not(.key-empty) .key-label { display: none; }
-        
         .keyboard-row { display: flex; justify-content: flex-start; margin-bottom: 10px; width: max-content; }
         .keyboard-container { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; width: 100%; min-width: 370px; }
         .system-row { display: flex; justify-content: space-between; width: 100%; margin-top: 5px; min-width: 370px; }
         
+        /* ★修正: 音素表示モード（デフォルト）の時はキーを少し縦長にし、画像を縮小して文字スペースを確保 */
         .key-btn {
             position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: var(--ios-key); border-radius: 6px; box-shadow: 0 1px 0 var(--ios-key-shadow);
-            cursor: pointer; padding: 8px 3px; min-width: 32px; height: 42px; margin: 0 3px; 
+            cursor: pointer; padding: 4px 3px; min-width: 32px; height: 48px; margin: 0 3px; 
             user-select: none; -webkit-user-select: none; touch-action: manipulation;
-            transition: transform 0.1s;
+            transition: transform 0.1s, height 0.2s, padding 0.2s;
         }
         .key-btn:active { background: #e5e5ea; transform: scale(0.95); }
-        .key-btn img { max-width: 28px; max-height: 28px; object-fit: contain; pointer-events: none; }
+        .key-btn img { max-width: 28px; max-height: 24px; object-fit: contain; pointer-events: none; transition: max-height 0.2s; }
         
         .key-label { 
             font-size: 11px; color: var(--ios-key-text); margin-top: 2px; font-weight: 500; 
-            pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30px;
+            pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30px; line-height: 1.1;
         }
+        
+        /* ★修正: 音素非表示モードの時はキーをiOS標準の高さに戻し、画像を最大化する */
+        .keyboard-wrapper.hide-key-labels .key-btn { height: 42px; padding: 8px 3px; }
+        .keyboard-wrapper.hide-key-labels .key-btn img { max-height: 28px; }
+        .keyboard-wrapper.hide-key-labels .key-btn:not(.key-empty) .key-label { display: none; }
         
         .key-empty { background: transparent; box-shadow: 0 1px 0 rgba(0,0,0,0.1); border: 1px dashed rgba(0,0,0,0.15); color: #888; }
         
@@ -74,7 +77,6 @@
         .key-return { min-width: 65px; background: var(--ios-sys-key); font-size: 14px; font-weight: 500; }
         .sys-drop-target.drag-over { background: #007aff !important; color: white !important; }
         
-        /* ★修正: touch-actionを削除して新しいライブラリに判定を委ねる */
         .key-edit-mode.movable { 
             cursor: grab; animation: jiggle 0.3s infinite alternate; 
             -webkit-touch-callout: none;
@@ -127,9 +129,7 @@
             border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
         }
 
-        .line-width-selector {
-            display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333;
-        }
+        .line-width-selector { display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333; }
         .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
         
         .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
@@ -212,9 +212,8 @@
     </div>
 
 <script>
-    // バージョンを更新 (データ引継ぎあり)
-    const STORAGE_KEY_DICT_V15 = 'artificial_text_dict_v15';
-    const STORAGE_KEY_LAYOUTS_V15 = 'artificial_text_layouts_v15';
+    const STORAGE_KEY_DICT_V16 = 'artificial_text_dict_v16';
+    const STORAGE_KEY_LAYOUTS_V16 = 'artificial_text_layouts_v16';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -265,8 +264,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V15);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V15);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V16);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V16);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -281,11 +280,11 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V16, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V16, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V15)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V15)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V16)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V16)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -294,8 +293,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V16, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V16, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -305,7 +304,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V15); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V15); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V16); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V16); location.reload();
         }
     }
 
@@ -354,8 +353,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V15)) || JSON.parse(localStorage.getItem('artificial_text_dict_v14')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V15)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v14'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V16)) || JSON.parse(localStorage.getItem('artificial_text_dict_v15')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V16)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v15'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -394,8 +393,8 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V16, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V16, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -451,7 +450,6 @@
             charDictionary[targetId] = { phoneme: phoneme, img: img, actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, url: dataUrl };
             
             if (isNew) {
-                // ★修正: どのタブで登録しても「現在のカスタムページ」と「QWERTYの4列目(基本枠にない場合)」に必ず同時追加
                 const cPage = 'custom' + customPageNum;
                 if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
                 layouts[cPage][layouts[cPage].length - 1].push(targetId);
@@ -571,6 +569,7 @@
         if (!dragSource) return;
         const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
         const item = sourceArray.splice(dragSource.index, 1)[0];
+        
         if (targetPage.startsWith('custom')) {
             if (layouts[targetPage].length === 0) layouts[targetPage].push([]);
             layouts[targetPage][layouts[targetPage].length - 1].push(item);
@@ -624,6 +623,7 @@
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); };
                     rowDiv.appendChild(dropArea);
                 }
+
                 if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
             });
 
@@ -731,7 +731,7 @@
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
         const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
-        if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } 
+        if (layoutName.startsWith('custom')) { layouts.lower[3].push(newId); } 
         else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
         saveDataToStorage(); renderKeyboard();
     }
@@ -793,9 +793,32 @@
     }
 
     function clearOutput() { typedSequence = []; renderOutputToCache(); }
+    
+    // ★修正: スマホで確実にダウンロード・保存するための強力なBlob処理
     function downloadImage() {
-        const link = document.createElement('a'); link.download = 'artificial_text_output.png';
-        link.href = offscreenCanvas.toDataURL("image/png"); link.click();
+        try {
+            offscreenCanvas.toBlob(function(blob) {
+                if (!blob) throw new Error("Blob creation failed");
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'artificial_text_output.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        } catch (e) {
+            // アプリ内ブラウザ等でダウンロードが完全にブロックされている場合の保険
+            const dataUrl = offscreenCanvas.toDataURL("image/png");
+            const win = window.open();
+            if (win) {
+                win.document.write('<p style="font-size:14px; text-align:center;">画像を長押しして「写真に追加」や「保存」を選択してください。</p>');
+                win.document.write('<img src="' + dataUrl + '" style="max-width:100%; border:1px solid #ccc;"/>');
+            } else {
+                alert("ダウンロードがブロックされました。ブラウザの設定を確認するか、画像を長押しして保存してください。");
+            }
+        }
     }
 </script>
 </body>
