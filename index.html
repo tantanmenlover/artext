@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (スマホ操作最適化版)</title>
+    <title>人工文字作成エディタ (ルビ・太さ調整・ラベル切替対応版)</title>
     
-    <!-- スマホでドラッグ&ドロップを機能させるための外部ライブラリ -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
     <script>
-        // スマホ用ドラッグ＆ドロップの有効化（0.15秒の長押しでドラッグ開始）
         MobileDragDrop.polyfill({ holdToDrag: 150 });
         window.addEventListener('touchmove', function() {}, {passive: false});
     </script>
@@ -44,12 +42,15 @@
         }
         
         .keyboard-wrapper { 
-            background: var(--ios-bg); padding: 10px; border-radius: 12px; 
+            background: var(--ios-bg); padding: 10px 10px; border-radius: 12px; 
             margin-top: 10px; transition: background 0.3s;
-            display: flex; flex-direction: column; align-items: center; 
-            margin-left: auto; margin-right: auto; transform-origin: top center;
+            display: flex; flex-direction: column; align-items: flex-start; 
+            width: max-content; margin-left: auto; margin-right: auto; transform-origin: top center;
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
+        
+        /* ラベル非表示モード時のCSS */
+        .keyboard-wrapper.hide-key-labels .key-btn:not(.key-empty) .key-label { display: none; }
         
         .keyboard-row { display: flex; justify-content: flex-start; margin-bottom: 10px; width: max-content; }
         .keyboard-container { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; width: 100%; min-width: 370px; }
@@ -78,7 +79,6 @@
         .key-return { min-width: 65px; background: var(--ios-sys-key); font-size: 14px; font-weight: 500; }
         .sys-drop-target.drag-over { background: #007aff !important; color: white !important; }
         
-        /* ★ドラッグ操作を安定させるためのタッチアクション制限 */
         .key-edit-mode.movable { 
             cursor: grab; animation: jiggle 0.3s infinite alternate; 
             touch-action: none !important; -webkit-touch-callout: none;
@@ -130,13 +130,21 @@
             margin-bottom: 10px; text-align: center; font-weight: bold; color: #0056b3;
             border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
         }
+
+        .line-width-selector {
+            display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333;
+        }
+        .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        
+        /* トグルスイッチ風のチェックボックスUI */
+        .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
+        .toggle-switch input { transform: scale(1.2); cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
         <h3>0. 辞書データの共有（エクスポート / インポート）</h3>
-        <p style="font-size: 0.85em; color: #555;">作った文字データとキーボード配列をファイルとして保存したり、読み込んだりできます。</p>
         <div class="controls">
             <button onclick="exportData()">作成データをダウンロード</button>
             <br><br>
@@ -151,6 +159,12 @@
     <div class="section">
         <h3>1. 文字をつくる / 編集する</h3>
         <canvas id="drawCanvas" width="100" height="100"></canvas>
+        <div class="line-width-selector">
+            <span>線の太さ:</span>
+            <label><input type="radio" name="lineWidth" value="2" onchange="setLineWidth(2)"> 細い</label>
+            <label><input type="radio" name="lineWidth" value="4" checked onchange="setLineWidth(4)"> 普通</label>
+            <label><input type="radio" name="lineWidth" value="8" onchange="setLineWidth(8)"> 太い</label>
+        </div>
         <div class="controls">
             <input type="text" id="phonemeInput" placeholder="音素 (例: a)">
             <button onclick="saveCharacter()">登録 / 上書き</button>
@@ -160,16 +174,22 @@
 
     <div class="section">
         <h3>2. キーボード</h3>
-        <div class="tabs" style="justify-content: space-between;">
+        <div class="tabs" style="justify-content: space-between; align-items: center;">
             <div style="display: flex; gap: 10px;">
-                <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム配列</div>
-                <div id="tabQwerty" class="tab active" onclick="switchMainLayout('qwerty')">システム配列</div>
+                <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
+                <div id="tabQwerty" class="tab active" onclick="switchMainLayout('qwerty')">システム</div>
             </div>
-            <button id="editToggleBtn" class="btn-warning" onclick="toggleEditMode()">編集モードをON</button>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <!-- 音素表示オンオフトグル -->
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggleKeyLabels" checked onchange="toggleKeyLabelsUI()"> 音素を表示
+                </label>
+                <button id="editToggleBtn" class="btn-warning" onclick="toggleEditMode()">編集モードON</button>
+            </div>
         </div>
         
         <div id="editBanner">
-            [編集] 長押しでドラッグ移動・文字の上に落とすと交換できます。<br>※システムキーの上に落とすとページ間移動します。
+            [編集] 行の両端に追加でき、枠の上の文字は直接スワップ(交換)できます。<br>※システムキーの上に落とすとページ間移動します。
         </div>
 
         <div class="keyboard-wrapper" id="keyboardWrapper">
@@ -186,15 +206,21 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         <canvas id="outputCanvas" width="600" height="300"></canvas>
-        <div class="controls">
-            <button class="btn-danger" style="background: #ff3b30; color: white; border: none;" onclick="clearOutput()">文章をまるごと消去</button>
-            <button onclick="downloadImage()">画像として保存</button>
+        <div class="controls" style="justify-content: space-between;">
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-danger" style="background: #ff3b30; color: white; border: none;" onclick="clearOutput()">文章をまるごと消去</button>
+                <button onclick="downloadImage()">画像として保存</button>
+            </div>
+            <!-- ルビ表示オンオフトグル -->
+            <label class="toggle-switch" style="margin-right: 10px;">
+                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)を表示
+            </label>
         </div>
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V13 = 'artificial_text_dict_v13';
-    const STORAGE_KEY_LAYOUTS_V13 = 'artificial_text_layouts_v13';
+    const STORAGE_KEY_DICT_V14 = 'artificial_text_dict_v14';
+    const STORAGE_KEY_LAYOUTS_V14 = 'artificial_text_layouts_v14';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -206,6 +232,10 @@
     let customPageNum = 1; 
     let currentEditingId = null; 
     let dragSource = null; 
+    
+    // 新機能の設定状態
+    let currentLineWidth = 4;
+    let isReadingMode = false;
 
     const outputCanvas = document.getElementById('outputCanvas');
     const oCtx = outputCanvas.getContext('2d');
@@ -242,8 +272,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V13);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V13);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V14);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V14);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -258,11 +288,11 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V14)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V14)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -271,8 +301,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -282,7 +312,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V13); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V13); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V14); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V14); location.reload();
         }
     }
 
@@ -331,8 +361,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V13)) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V13));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V14)) || JSON.parse(localStorage.getItem('artificial_text_dict_v13')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V14)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v13'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -371,14 +401,21 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V13, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V13, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(layouts));
     }
 
+    // --- 1. お絵かき・登録 ---
     const drawCanvas = document.getElementById('drawCanvas');
     const dCtx = drawCanvas.getContext('2d');
     let isDrawing = false;
-    dCtx.strokeStyle = "black"; dCtx.lineWidth = 4; dCtx.lineCap = "round";
+    
+    function setLineWidth(width) {
+        currentLineWidth = parseInt(width);
+        dCtx.lineWidth = currentLineWidth;
+    }
+    
+    dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth; dCtx.lineCap = "round";
 
     drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); dCtx.moveTo(e.offsetX, e.offsetY); });
     drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; dCtx.lineTo(e.offsetX, e.offsetY); dCtx.stroke(); });
@@ -386,6 +423,7 @@
 
     function clearDrawCanvas() { 
         dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); 
+        dCtx.lineWidth = currentLineWidth; // 再設定
         currentEditingId = null; 
         document.getElementById('phonemeInput').value = '';
     }
@@ -463,6 +501,7 @@
         }
     }
 
+    // --- 各種UI切替機能 ---
     function switchMainLayout(tab) {
         mainTab = tab;
         document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
@@ -480,7 +519,7 @@
     function toggleEditMode() {
         isEditMode = !isEditMode;
         const btn = document.getElementById('editToggleBtn');
-        btn.textContent = isEditMode ? '編集モードをOFF' : '編集モードをON';
+        btn.textContent = isEditMode ? '編集モードOFF' : '編集モードON';
         btn.className = isEditMode ? 'btn-danger' : 'btn-warning';
         document.getElementById('editBanner').style.display = isEditMode ? 'block' : 'none';
         
@@ -490,6 +529,21 @@
         renderKeyboard();
     }
 
+    function toggleKeyLabelsUI() {
+        const wrapper = document.getElementById('keyboardWrapper');
+        if (document.getElementById('toggleKeyLabels').checked) {
+            wrapper.classList.remove('hide-key-labels');
+        } else {
+            wrapper.classList.add('hide-key-labels');
+        }
+    }
+
+    function toggleReadingUI() {
+        isReadingMode = document.getElementById('toggleReading').checked;
+        renderOutputToCache();
+    }
+
+    // --- ドラッグ＆ドロップ処理 ---
     function createDropSlot(layoutName, rowIndex, slotIndex) {
         const slot = document.createElement('div');
         slot.className = 'drop-slot';
@@ -608,23 +662,15 @@
                 if (rowIndex === 2) {
                     const shiftBtn = document.createElement('div');
                     shiftBtn.className = 'key-btn key-system sys-drop-target';
-                    
-                    // ★大文字小文字切替キーと削除キーのサイズを拡大
                     if (qwertyPage === 'numbers') {
-                        shiftBtn.textContent = '#+='; 
-                        shiftBtn.style.fontSize = '14px'; // 記号は通常サイズ
-                        shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; 
-                        setupSystemDropTarget(shiftBtn, 'symbols');
+                        shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px';
+                        shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
                     } else if (qwertyPage === 'symbols') {
-                        shiftBtn.textContent = '123'; 
-                        shiftBtn.style.fontSize = '14px'; // 記号は通常サイズ
-                        shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; 
-                        setupSystemDropTarget(shiftBtn, 'numbers');
+                        shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px';
+                        shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
                     } else {
-                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; 
-                        shiftBtn.style.fontSize = '22px'; // 矢印は大きく
-                        shiftBtn.onclick = toggleShiftPage; 
-                        setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
+                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px';
+                        shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
                     }
                     rowDiv.appendChild(shiftBtn);
                 }
@@ -645,12 +691,7 @@
                 }
 
                 if (rowIndex === 2) {
-                    const bsBtn = document.createElement('div'); 
-                    bsBtn.className = 'key-btn key-system'; 
-                    bsBtn.textContent = '⌫'; 
-                    bsBtn.style.fontSize = '22px'; // ★削除キーを大きく
-                    bsBtn.onclick = backspace; 
-                    rowDiv.appendChild(bsBtn);
+                    const bsBtn = document.createElement('div'); bsBtn.className = 'key-btn key-system'; bsBtn.textContent = '⌫'; bsBtn.style.fontSize = '22px'; bsBtn.onclick = backspace; rowDiv.appendChild(bsBtn);
                 }
 
                 if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
@@ -729,7 +770,10 @@
     function renderOutputToCache() {
         offCtx.fillStyle = "white"; offCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         let x = 10, y = 10;
-        const renderHeight = 50, lineSpacing = 10, scale = renderHeight / drawCanvas.height;
+        const renderHeight = 50;
+        // ルビ表示モードがオンの場合は行間を広く取る
+        const lineSpacing = isReadingMode ? 25 : 10; 
+        const scale = renderHeight / drawCanvas.height;
         cursorHeight = renderHeight;
 
         for (const item of typedSequence) {
@@ -742,6 +786,15 @@
                 if (x + renderWidth > offscreenCanvas.width) { x = 10; y += renderHeight + lineSpacing; }
                 const sourceX = Math.max(0, getCharacterBoundsFromCtx(getContextForImage(charData.img), drawCanvas.width, drawCanvas.height).minX - charData.leftPad);
                 offCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
+                
+                // ルビ(読み)の描画
+                if (isReadingMode) {
+                    offCtx.font = "12px -apple-system, sans-serif";
+                    offCtx.fillStyle = "#888888";
+                    offCtx.textAlign = "center";
+                    offCtx.fillText(charData.phoneme, x + renderWidth / 2, y + renderHeight + 15);
+                }
+                
                 x += renderWidth; 
             }
         }
