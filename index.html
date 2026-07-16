@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (文字消去バグ完全修正版)</title>
+    <title>人工文字作成エディタ</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -92,7 +92,7 @@
     <div id="toast">操作しました</div>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
-        <h3>0. データの共有（エクスポート / インポート）</h3>
+        <h3>0. データの共有（エクスポート/インポート）</h3>
         <p style="font-size: 0.85em; color: #555;">辞書データと<strong style="color: #007aff;">今書いている文章データ</strong>が一緒に保存・復元されます。</p>
         <div class="controls">
             <button onclick="exportData()">作成データをダウンロード</button>
@@ -106,7 +106,7 @@
     </div>
 
     <div class="section">
-        <h3>1. 文字をつくる / 編集する</h3>
+        <h3>1. 文字をつくる/編集する</h3>
         <canvas id="drawCanvas" width="200" height="200"></canvas>
         <div class="line-width-selector">
             <span>線の太さ:</span>
@@ -132,7 +132,7 @@
 
     <div class="section">
         <h3>2. キーボード</h3>
-        <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">※PCやiPadの<strong style="color: #007aff;">物理キーボード</strong>からも直接タイピングできます。</p>
+        <p style="font-size: 0.85em; color: #555; margin-top: -5px; margin-bottom: 10px;">※PCやiPadのキーボードからも直接タイピングできます。</p>
         <div class="tabs" style="justify-content: space-between; align-items: center;">
             <div style="display: flex; gap: 10px;">
                 <div id="tabCustom" class="tab" onclick="switchMainLayout('custom')">カスタム</div>
@@ -159,8 +159,8 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         <div class="toolbar">
-            <button onclick="undo()" id="btnUndo" disabled>↩️ 取消</button>
-            <button onclick="redo()" id="btnRedo" disabled>↪️ やり直し</button>
+            <button onclick="undo()" id="btnUndo" disabled>Undo</button>
+            <button onclick="redo()" id="btnRedo" disabled>Redo</button>
             <button onclick="selectAllText()">全選択</button>
             <button onclick="copyText()">コピー</button>
             <button onclick="cutText()">カット</button>
