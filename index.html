@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (縦書き・方向切替・個別保存対応版)</title>
+    <title>人工文字作成エディタ (個別保存・確実対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -131,9 +131,21 @@
         .toggle-switch input { transform: scale(1.2); cursor: pointer; }
         .slider-container { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 10px; }
         .slider-container input[type="range"] { flex-grow: 1; }
-        
-        /* セレクトボックスのデザイン */
         select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
+        
+        /* ★個別ダウンロード用モーダルのスタイル */
+        #downloadModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;
+        }
+        #downloadModalContent {
+            background: #fff; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px;
+            max-height: 80vh; overflow-y: auto; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .download-link-btn {
+            display: block; padding: 12px; background: #007aff; color: white !important;
+            text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -200,7 +212,6 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         
-        <!-- ★文字サイズ調整と書字方向設定 -->
         <div class="slider-container">
             <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">文字サイズ:</span>
             <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
@@ -229,7 +240,19 @@
         
         <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
             <button onclick="downloadImageCombined()" style="flex: 1; font-size: 0.85em;">全ページを1枚にして保存</button>
-            <button onclick="downloadPagesIndividually()" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
+            <button onclick="openDownloadModal()" class="btn-secondary" style="flex: 1; font-size: 0.85em;">各ページを個別に保存</button>
+        </div>
+    </div>
+
+    <!-- ★個別ダウンロード用モーダル画面 -->
+    <div id="downloadModal">
+        <div id="downloadModalContent">
+            <h3 style="margin-top: 0; color: #333;">ページごとに保存</h3>
+            <p style="font-size: 13px; color: #555; margin-bottom: 20px;">
+                スマホの制限を防ぐため、以下のボタンを1つずつタップして保存してください。
+            </p>
+            <div id="downloadLinksContainer"></div>
+            <button class="btn-secondary" style="width: 100%; margin-top: 10px;" onclick="closeDownloadModal()">閉じる</button>
         </div>
     </div>
 
@@ -251,7 +274,7 @@
     let currentLineWidth = 4;
     let isReadingMode = false;
     let textRenderSize = 50; 
-    let textDirection = 'ltr'; // ltr, rtl, ttb
+    let textDirection = 'ltr'; 
 
     let cursorIndex = 0; 
 
@@ -380,8 +403,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || JSON.parse(localStorage.getItem('artificial_text_dict_v18')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v18'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -775,7 +798,6 @@
         saveDataToStorage(); renderKeyboard();
     }
 
-    // --- 3. 文章生成と出力キャンバス処理 (多方向対応) ---
     function typeCharacter(id) { typedSequence.splice(cursorIndex, 0, id); cursorIndex++; renderOutputToCache(); }
     function addFunctionKey(funcType) { typedSequence.splice(cursorIndex, 0, funcType); cursorIndex++; renderOutputToCache(); }
     function backspace() { if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; renderOutputToCache(); } }
@@ -801,7 +823,6 @@
         const scale = renderHeight / drawCanvas.height;
         cursorHeight = renderHeight;
 
-        // ★方向ごとの初期座標
         let x, y;
         if (textDirection === 'ltr') { x = MARGIN_X; y = MARGIN_Y; }
         else if (textDirection === 'rtl') { x = PAGE_WIDTH - MARGIN_X; y = MARGIN_Y; }
@@ -903,7 +924,6 @@
                         if (x < MARGIN_X) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
                     }
-                    // 文字の横幅が異なる場合、列の中央に配置
                     let cx = x + (renderHeight - renderWidth) / 2;
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, cx, y, renderWidth, renderHeight);
                     if (isReadingMode) {
@@ -953,7 +973,6 @@
         }
     }
 
-    // ★ヒットテスト (方向別に最適化)
     function handleDocumentClick(e) {
         const canvas = e.target.closest('.output-page');
         if (!canvas || window.cachedCursorPositions.length === 0) return;
@@ -1016,7 +1035,6 @@
         const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0); return tempCtx;
     }
 
-    // ★画像保存 (結合)
     function downloadImageCombined() {
         if (pagesData.length === 0) return;
         const combinedCanvas = document.createElement('canvas');
@@ -1038,30 +1056,29 @@
         }
     }
 
-    // ★画像保存 (個別)
-    function downloadPagesIndividually() {
+    // ★個別ダウンロード用モーダル制御
+    function openDownloadModal() {
         if (pagesData.length === 0) return;
+        const container = document.getElementById('downloadLinksContainer');
+        container.innerHTML = '';
         
         pagesData.forEach((canvas, index) => {
-            // スマホブラウザのブロックを回避するため、少しずつ時間をずらして保存
-            setTimeout(() => {
-                try {
-                    canvas.toBlob(function(blob) {
-                        if (!blob) throw new Error("Blob creation failed");
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `artificial_text_page_${index + 1}.png`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                    }, 'image/png');
-                } catch (e) {
-                    if (index === 0) alert("個別ダウンロードがブロックされました。ブラウザの設定を確認してください。");
-                }
-            }, index * 300); // 0.3秒間隔
+            const dataUrl = canvas.toDataURL("image/png");
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `artificial_text_page_${index + 1}.png`;
+            a.className = 'download-link-btn';
+            a.textContent = `📄 ページ ${index + 1} を保存`;
+            // ダウンロード後にモーダルを閉じる(任意)
+            a.onclick = () => { setTimeout(closeDownloadModal, 500); };
+            container.appendChild(a);
         });
+        
+        document.getElementById('downloadModal').style.display = 'flex';
+    }
+
+    function closeDownloadModal() {
+        document.getElementById('downloadModal').style.display = 'none';
     }
 </script>
 </body>
