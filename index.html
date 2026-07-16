@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (ルビ・太さ調整・ラベル切替対応版)</title>
+    <title>人工文字作成エディタ (スマホD&D・追加バグ完全修正版)</title>
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
-    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
-    <script>
-        MobileDragDrop.polyfill({ holdToDrag: 150 });
-        window.addEventListener('touchmove', function() {}, {passive: false});
-    </script>
+    <!-- ★修正: よりスマホ(iOS)に強いドラッグ＆ドロップ変換ライブラリに変更 -->
+    <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
     <style>
         :root {
@@ -49,7 +45,6 @@
         }
         .keyboard-wrapper.is-editing { background: #c2c6cc; }
         
-        /* ラベル非表示モード時のCSS */
         .keyboard-wrapper.hide-key-labels .key-btn:not(.key-empty) .key-label { display: none; }
         
         .keyboard-row { display: flex; justify-content: flex-start; margin-bottom: 10px; width: max-content; }
@@ -79,9 +74,10 @@
         .key-return { min-width: 65px; background: var(--ios-sys-key); font-size: 14px; font-weight: 500; }
         .sys-drop-target.drag-over { background: #007aff !important; color: white !important; }
         
+        /* ★修正: touch-actionを削除して新しいライブラリに判定を委ねる */
         .key-edit-mode.movable { 
             cursor: grab; animation: jiggle 0.3s infinite alternate; 
-            touch-action: none !important; -webkit-touch-callout: none;
+            -webkit-touch-callout: none;
         }
         .key-edit-mode.movable:active { cursor: grabbing; }
         .key-btn.drag-over-swap { border: 2px solid #007aff; transform: scale(1.1); z-index: 10; background: #e5f0ff; }
@@ -136,7 +132,6 @@
         }
         .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
         
-        /* トグルスイッチ風のチェックボックスUI */
         .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
         .toggle-switch input { transform: scale(1.2); cursor: pointer; }
     </style>
@@ -180,16 +175,15 @@
                 <div id="tabQwerty" class="tab active" onclick="switchMainLayout('qwerty')">システム</div>
             </div>
             <div style="display: flex; gap: 15px; align-items: center;">
-                <!-- 音素表示オンオフトグル -->
                 <label class="toggle-switch">
-                    <input type="checkbox" id="toggleKeyLabels" checked onchange="toggleKeyLabelsUI()"> 音素を表示
+                    <input type="checkbox" id="toggleKeyLabels" checked onchange="toggleKeyLabelsUI()"> 音素表示
                 </label>
                 <button id="editToggleBtn" class="btn-warning" onclick="toggleEditMode()">編集モードON</button>
             </div>
         </div>
         
         <div id="editBanner">
-            [編集] 行の両端に追加でき、枠の上の文字は直接スワップ(交換)できます。<br>※システムキーの上に落とすとページ間移動します。
+            [編集] 長押しでドラッグ移動・スワップ(交換)が可能です。<br>※システムキー(↑、123等)の上に落とすとページ間移動します。
         </div>
 
         <div class="keyboard-wrapper" id="keyboardWrapper">
@@ -211,16 +205,16 @@
                 <button class="btn-danger" style="background: #ff3b30; color: white; border: none;" onclick="clearOutput()">文章をまるごと消去</button>
                 <button onclick="downloadImage()">画像として保存</button>
             </div>
-            <!-- ルビ表示オンオフトグル -->
             <label class="toggle-switch" style="margin-right: 10px;">
-                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)を表示
+                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)
             </label>
         </div>
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V14 = 'artificial_text_dict_v14';
-    const STORAGE_KEY_LAYOUTS_V14 = 'artificial_text_layouts_v14';
+    // バージョンを更新 (データ引継ぎあり)
+    const STORAGE_KEY_DICT_V15 = 'artificial_text_dict_v15';
+    const STORAGE_KEY_LAYOUTS_V15 = 'artificial_text_layouts_v15';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -233,7 +227,6 @@
     let currentEditingId = null; 
     let dragSource = null; 
     
-    // 新機能の設定状態
     let currentLineWidth = 4;
     let isReadingMode = false;
 
@@ -272,8 +265,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V14);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V14);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V15);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V15);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -288,11 +281,11 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V14)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V14)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V15)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V15)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -301,8 +294,8 @@
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -312,7 +305,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V14); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V14); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V15); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V15); location.reload();
         }
     }
 
@@ -361,8 +354,8 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V14)) || JSON.parse(localStorage.getItem('artificial_text_dict_v13')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V14)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v13'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V15)) || JSON.parse(localStorage.getItem('artificial_text_dict_v14')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V15)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v14'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -401,11 +394,10 @@
         for (const id in charDictionary) {
             dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V14, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V14, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V15, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V15, JSON.stringify(layouts));
     }
 
-    // --- 1. お絵かき・登録 ---
     const drawCanvas = document.getElementById('drawCanvas');
     const dCtx = drawCanvas.getContext('2d');
     let isDrawing = false;
@@ -414,7 +406,6 @@
         currentLineWidth = parseInt(width);
         dCtx.lineWidth = currentLineWidth;
     }
-    
     dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth; dCtx.lineCap = "round";
 
     drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); dCtx.moveTo(e.offsetX, e.offsetY); });
@@ -423,7 +414,7 @@
 
     function clearDrawCanvas() { 
         dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); 
-        dCtx.lineWidth = currentLineWidth; // 再設定
+        dCtx.lineWidth = currentLineWidth; 
         currentEditingId = null; 
         document.getElementById('phonemeInput').value = '';
     }
@@ -458,12 +449,13 @@
         const img = new Image();
         img.onload = () => {
             charDictionary[targetId] = { phoneme: phoneme, img: img, actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, url: dataUrl };
+            
             if (isNew) {
-                if (mainTab === 'custom') {
-                    const cPage = 'custom' + customPageNum;
-                    if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
-                    layouts[cPage][layouts[cPage].length - 1].push(targetId);
-                }
+                // ★修正: どのタブで登録しても「現在のカスタムページ」と「QWERTYの4列目(基本枠にない場合)」に必ず同時追加
+                const cPage = 'custom' + customPageNum;
+                if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
+                layouts[cPage][layouts[cPage].length - 1].push(targetId);
+                
                 let foundInQwerty = false;
                 ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
                     for (let r = 0; r < 3; r++) {
@@ -471,11 +463,13 @@
                         if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; }
                     }
                 });
-                if (!foundInQwerty && mainTab === 'qwerty') {
+                
+                if (!foundInQwerty) {
                     if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = [];
                     layouts[qwertyPage][3].push(targetId);
                 }
             }
+            
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
             renderKeyboard(); clearDrawCanvas();
             if(isEditMode) toggleEditMode();
@@ -488,20 +482,16 @@
         if (!wrapper) return;
         const containerWidth = wrapper.parentElement.clientWidth;
         const targetWidth = 390; 
-        
         if (containerWidth < targetWidth) {
             const scale = containerWidth / targetWidth;
             wrapper.style.transform = `scale(${scale})`;
             wrapper.style.width = `${targetWidth}px`;
             wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
         } else {
-            wrapper.style.transform = 'none';
-            wrapper.style.width = 'max-content';
-            wrapper.style.marginBottom = '0';
+            wrapper.style.transform = 'none'; wrapper.style.width = 'max-content'; wrapper.style.marginBottom = '0';
         }
     }
 
-    // --- 各種UI切替機能 ---
     function switchMainLayout(tab) {
         mainTab = tab;
         document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
@@ -531,11 +521,8 @@
 
     function toggleKeyLabelsUI() {
         const wrapper = document.getElementById('keyboardWrapper');
-        if (document.getElementById('toggleKeyLabels').checked) {
-            wrapper.classList.remove('hide-key-labels');
-        } else {
-            wrapper.classList.add('hide-key-labels');
-        }
+        if (document.getElementById('toggleKeyLabels').checked) wrapper.classList.remove('hide-key-labels');
+        else wrapper.classList.add('hide-key-labels');
     }
 
     function toggleReadingUI() {
@@ -543,10 +530,8 @@
         renderOutputToCache();
     }
 
-    // --- ドラッグ＆ドロップ処理 ---
     function createDropSlot(layoutName, rowIndex, slotIndex) {
-        const slot = document.createElement('div');
-        slot.className = 'drop-slot';
+        const slot = document.createElement('div'); slot.className = 'drop-slot';
         slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); };
         slot.ondragleave = () => { slot.classList.remove('drag-over'); };
         slot.ondrop = (e) => { e.preventDefault(); slot.classList.remove('drag-over'); handleInsertDrop(layoutName, rowIndex, slotIndex); };
@@ -559,13 +544,10 @@
         if (!dragSource) return;
         const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
         const item = sourceArray.splice(dragSource.index, 1)[0]; 
-        
         let adjustedTarget = targetIndex;
         if (dragSource.layout === targetLayout && dragSource.row === targetRow && dragSource.index < targetIndex) adjustedTarget -= 1;
-        
         const targetArray = getLayoutArray(targetLayout, targetRow);
         targetArray.splice(adjustedTarget, 0, item);
-        
         cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
 
@@ -573,7 +555,6 @@
         if (!dragSource) return;
         const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
         const targetArray = getLayoutArray(targetLayout, targetRow);
-        
         const sourceItem = sourceArray[dragSource.index];
         const targetItem = targetArray[targetIndex];
         const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
@@ -590,14 +571,12 @@
         if (!dragSource) return;
         const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
         const item = sourceArray.splice(dragSource.index, 1)[0];
-        
         if (targetPage.startsWith('custom')) {
             if (layouts[targetPage].length === 0) layouts[targetPage].push([]);
             layouts[targetPage][layouts[targetPage].length - 1].push(item);
             customPageNum = targetPage === 'custom1' ? 1 : 2;
         } else {
-            layouts[targetPage][3].push(item);
-            qwertyPage = targetPage; 
+            layouts[targetPage][3].push(item); qwertyPage = targetPage; 
         }
         cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
@@ -645,13 +624,11 @@
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); };
                     rowDiv.appendChild(dropArea);
                 }
-
                 if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
             });
 
         } else if (mainTab === 'qwerty') {
             const activeLayout = layouts[qwertyPage];
-            
             activeLayout.forEach((rowArray, rowIndex) => {
                 const rowDiv = document.createElement('div');
                 rowDiv.className = rowIndex === 3 ? 'keyboard-container' : 'keyboard-row';
@@ -663,14 +640,11 @@
                     const shiftBtn = document.createElement('div');
                     shiftBtn.className = 'key-btn key-system sys-drop-target';
                     if (qwertyPage === 'numbers') {
-                        shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px';
-                        shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
+                        shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
                     } else if (qwertyPage === 'symbols') {
-                        shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px';
-                        shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
+                        shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
                     } else {
-                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px';
-                        shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
+                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
                     }
                     rowDiv.appendChild(shiftBtn);
                 }
@@ -697,7 +671,6 @@
                 if (rowArray.length > 0 || rowIndex < 3 || (rowIndex === 3 && isEditMode)) container.appendChild(rowDiv);
             });
         }
-        
         adjustKeyboardScale();
     }
 
@@ -758,7 +731,7 @@
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
         const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
-        if (layoutName.startsWith('custom')) { layouts.lower[3].push(newId); } 
+        if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } 
         else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
         saveDataToStorage(); renderKeyboard();
     }
@@ -770,10 +743,7 @@
     function renderOutputToCache() {
         offCtx.fillStyle = "white"; offCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         let x = 10, y = 10;
-        const renderHeight = 50;
-        // ルビ表示モードがオンの場合は行間を広く取る
-        const lineSpacing = isReadingMode ? 25 : 10; 
-        const scale = renderHeight / drawCanvas.height;
+        const renderHeight = 50, lineSpacing = isReadingMode ? 25 : 10, scale = renderHeight / drawCanvas.height;
         cursorHeight = renderHeight;
 
         for (const item of typedSequence) {
@@ -786,15 +756,10 @@
                 if (x + renderWidth > offscreenCanvas.width) { x = 10; y += renderHeight + lineSpacing; }
                 const sourceX = Math.max(0, getCharacterBoundsFromCtx(getContextForImage(charData.img), drawCanvas.width, drawCanvas.height).minX - charData.leftPad);
                 offCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
-                
-                // ルビ(読み)の描画
                 if (isReadingMode) {
-                    offCtx.font = "12px -apple-system, sans-serif";
-                    offCtx.fillStyle = "#888888";
-                    offCtx.textAlign = "center";
+                    offCtx.font = "12px -apple-system, sans-serif"; offCtx.fillStyle = "#888888"; offCtx.textAlign = "center";
                     offCtx.fillText(charData.phoneme, x + renderWidth / 2, y + renderHeight + 15);
                 }
-                
                 x += renderWidth; 
             }
         }
