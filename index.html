@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ (個別保存・確実対応版)</title>
+    <title>人工文字作成エディタ (縦書き余白最適化・超高速描画版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -133,7 +133,6 @@
         .slider-container input[type="range"] { flex-grow: 1; }
         select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
         
-        /* ★個別ダウンロード用モーダルのスタイル */
         #downloadModal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;
@@ -244,7 +243,6 @@
         </div>
     </div>
 
-    <!-- ★個別ダウンロード用モーダル画面 -->
     <div id="downloadModal">
         <div id="downloadModalContent">
             <h3 style="margin-top: 0; color: #333;">ページごとに保存</h3>
@@ -257,8 +255,9 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V19 = 'artificial_text_dict_v19';
-    const STORAGE_KEY_LAYOUTS_V19 = 'artificial_text_layouts_v19';
+    // V20へのアップデート (縦書き最適化・超高速化)
+    const STORAGE_KEY_DICT_V20 = 'artificial_text_dict_v20';
+    const STORAGE_KEY_LAYOUTS_V20 = 'artificial_text_layouts_v20';
 
     let charDictionary = {}; 
     let layouts = { custom1: [], custom2: [], lower: [], upper: [], numbers: [], symbols: [] };
@@ -314,8 +313,8 @@
     };
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V19);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V19);
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V20);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V20);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
         const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData) };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
@@ -330,21 +329,21 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(importedData.layouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(importedData.layouts));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V20)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V20)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-                            currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50, leftPad: 2, rightPad: 2 };
+                            currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50, leftPad: 2, rightPad: 2, actualHeight: 50, topPad: 2, bottomPad: 2, minX: 25, minY: 25 };
                             if (currentLayouts.custom1.length === 0) currentLayouts.custom1.push([]);
                             currentLayouts.custom1[currentLayouts.custom1.length - 1].push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -354,7 +353,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべてのデータが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V19); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V19); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V20); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V20); location.reload();
         }
     }
 
@@ -402,9 +401,27 @@
         });
     }
 
+    // ★修正: 縦横の境界を同時に取得する強力な解析関数
+    function getCharacterBoundsFromCtx(ctx, w, h) {
+        const imgData = ctx.getImageData(0, 0, w, h);
+        let minX = w, maxX = 0, minY = h, maxY = 0; let found = false;
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (imgData.data[(y * w + x) * 4 + 3] > 0) {
+                    if (x < minX) minX = x; if (x > maxX) maxX = x;
+                    if (y < minY) minY = y; if (y > maxY) maxY = y;
+                    found = true;
+                }
+            }
+        }
+        return found ? { minX, maxX, minY, maxY } : { minX: 0, maxX: w-1, minY: 0, maxY: h-1 };
+    }
+
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V19)) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V19));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V20)) 
+                          || JSON.parse(localStorage.getItem('artificial_text_dict_v19')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V20)) 
+                             || JSON.parse(localStorage.getItem('artificial_text_layouts_v19'));
 
         if (savedLayouts) layouts = savedLayouts;
         else {
@@ -424,7 +441,32 @@
             for (const id in savedDict) {
                 const data = savedDict[id]; const img = new Image();
                 img.onload = () => {
-                    charDictionary[id] = { img: img, actualWidth: data.actualWidth, leftPad: data.leftPad, rightPad: data.rightPad, url: data.url, phoneme: data.phoneme };
+                    let charInfo = { 
+                        img: img, url: data.url, phoneme: data.phoneme,
+                        actualWidth: data.actualWidth, leftPad: data.leftPad, rightPad: data.rightPad,
+                        actualHeight: data.actualHeight, topPad: data.topPad, bottomPad: data.bottomPad,
+                        minX: data.minX, minY: data.minY
+                    };
+                    
+                    // 古いバージョンのデータを高速描画用(V20)に自動アップグレード
+                    if (charInfo.minX === undefined || charInfo.actualHeight === undefined) {
+                        const tempCanvas = document.createElement('canvas'); 
+                        tempCanvas.width = 100; tempCanvas.height = 100;
+                        const tempCtx = tempCanvas.getContext('2d'); 
+                        tempCtx.drawImage(img, 0, 0);
+                        const bounds = getCharacterBoundsFromCtx(tempCtx, 100, 100);
+                        
+                        charInfo.minX = bounds.minX; charInfo.minY = bounds.minY;
+                        const lPad = (bounds.minX === 0) ? 0 : 2; const rPad = (bounds.maxX === 99) ? 0 : 2;
+                        charInfo.actualWidth = (bounds.maxX - bounds.minX + 1) + lPad + rPad;
+                        charInfo.leftPad = lPad; charInfo.rightPad = rPad;
+                        
+                        const tPad = (bounds.minY === 0) ? 0 : 2; const bPad = (bounds.maxY === 99) ? 0 : 2;
+                        charInfo.actualHeight = (bounds.maxY - bounds.minY + 1) + tPad + bPad;
+                        charInfo.topPad = tPad; charInfo.bottomPad = bPad;
+                    }
+                    
+                    charDictionary[id] = charInfo;
                     loadedCount++;
                     if (loadedCount === totalKeys) { 
                         cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
@@ -442,10 +484,14 @@
     function saveDataToStorage() {
         const dictToSave = {};
         for (const id in charDictionary) {
-            dictToSave[id] = { url: charDictionary[id].url, actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, phoneme: charDictionary[id].phoneme };
+            dictToSave[id] = { 
+                url: charDictionary[id].url, phoneme: charDictionary[id].phoneme,
+                actualWidth: charDictionary[id].actualWidth, leftPad: charDictionary[id].leftPad, rightPad: charDictionary[id].rightPad, minX: charDictionary[id].minX,
+                actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
+            };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V19, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V19, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V20, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V20, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
@@ -469,27 +515,22 @@
         document.getElementById('phonemeInput').value = '';
     }
 
-    function getCharacterBoundsFromCtx(ctx, w, h) {
-        const imgData = ctx.getImageData(0, 0, w, h);
-        let minX = w, maxX = 0; let found = false;
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                if (imgData.data[(y * w + x) * 4 + 3] > 0) {
-                    if (x < minX) minX = x; if (x > maxX) maxX = x; found = true;
-                }
-            }
-        }
-        return found ? { minX, maxX } : { minX: 0, maxX: w };
-    }
-
     function saveCharacter() {
         const phoneme = document.getElementById('phonemeInput').value.trim();
         if (!phoneme) { alert("音素を入力してください！"); return; }
 
         const bounds = getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height);
+        
+        // 横の余白情報
         const leftPad = (bounds.minX === 0) ? 0 : 2;
         const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : 2;
         const actualWidth = bounds.maxX - bounds.minX + 1;
+        
+        // 縦の余白情報
+        const topPad = (bounds.minY === 0) ? 0 : 2;
+        const bottomPad = (bounds.maxY === drawCanvas.height - 1) ? 0 : 2;
+        const actualHeight = bounds.maxY - bounds.minY + 1;
+        
         const dataUrl = drawCanvas.toDataURL("image/png");
 
         let targetId = currentEditingId;
@@ -498,7 +539,12 @@
 
         const img = new Image();
         img.onload = () => {
-            charDictionary[targetId] = { phoneme: phoneme, img: img, actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, url: dataUrl };
+            charDictionary[targetId] = { 
+                phoneme: phoneme, img: img, url: dataUrl,
+                minX: bounds.minX, minY: bounds.minY,
+                actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, 
+                actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad
+            };
             
             if (isNew) {
                 const cPage = 'custom' + customPageNum;
@@ -812,6 +858,7 @@
         return ctx;
     }
 
+    // ★修正: 超高速描画かつ縦横の余白を完璧に詰める新ロジック
     function renderOutputToCache() {
         pagesData = [];
         window.cachedCursorPositions = [];
@@ -820,7 +867,7 @@
         
         const renderHeight = textRenderSize;
         const lineSpacing = isReadingMode ? renderHeight * 0.7 : renderHeight * 0.2; 
-        const scale = renderHeight / drawCanvas.height;
+        const scale = renderHeight / drawCanvas.height; // height is 100
         cursorHeight = renderHeight;
 
         let x, y;
@@ -837,7 +884,13 @@
 
         for (let i = 0; i < typedSequence.length; i++) {
             const item = typedSequence[i];
-            window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection });
+            
+            // 縦書き時のカーソルの高さを保存
+            let thisCursorHeight = renderHeight;
+            if (textDirection === 'ttb' && charDictionary[item]) {
+                thisCursorHeight = charDictionary[item].actualHeight * scale;
+            }
+            window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: thisCursorHeight, dir: textDirection });
 
             if (item === '改行') { 
                 if (textDirection === 'ltr') {
@@ -884,59 +937,65 @@
 
             const charData = charDictionary[item];
             if (charData) {
-                const renderWidth = charData.actualWidth * scale;
-                const sourceX = Math.max(0, getCharacterBoundsFromCtx(getContextForImage(charData.img), drawCanvas.width, drawCanvas.height).minX - charData.leftPad);
-                
                 if (textDirection === 'ltr') {
-                    if (x + renderWidth > PAGE_WIDTH - MARGIN_X) { 
+                    const renderWidthActual = charData.actualWidth * scale;
+                    if (x + renderWidthActual > PAGE_WIDTH - MARGIN_X) { 
                         x = MARGIN_X; y += renderHeight + lineSpacing;
                         if (isReadingMode) y += renderHeight * 0.3;
                         if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
                     }
-                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x, y, renderWidth, renderHeight);
+                    const sourceX = Math.max(0, charData.minX - charData.leftPad);
+                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 100, x, y, renderWidthActual, renderHeight);
                     if (isReadingMode) {
                         currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
                         currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
-                        currentCtx.fillText(charData.phoneme, x + renderWidth / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
+                        currentCtx.fillText(charData.phoneme, x + renderWidthActual / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
                     }
-                    x += renderWidth; 
+                    x += renderWidthActual; 
                 } 
                 else if (textDirection === 'rtl') {
-                    if (x - renderWidth < MARGIN_X) {
+                    const renderWidthActual = charData.actualWidth * scale;
+                    if (x - renderWidthActual < MARGIN_X) {
                         x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
                         if (isReadingMode) y += renderHeight * 0.3;
                         if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
                     }
-                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, x - renderWidth, y, renderWidth, renderHeight);
+                    const sourceX = Math.max(0, charData.minX - charData.leftPad);
+                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 100, x - renderWidthActual, y, renderWidthActual, renderHeight);
                     if (isReadingMode) {
                         currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
                         currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
-                        currentCtx.fillText(charData.phoneme, x - renderWidth / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
+                        currentCtx.fillText(charData.phoneme, x - renderWidthActual / 2, y + renderHeight + Math.max(10, renderHeight * 0.3) + 2);
                     }
-                    x -= renderWidth;
+                    x -= renderWidthActual;
                 }
-                else { // ttb
-                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
+                else { // ttb: 縦書き時はY方向の余白をカットして描画
+                    const renderHeightActual = charData.actualHeight * scale;
+                    if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) {
                         y = MARGIN_Y; x -= renderHeight + lineSpacing;
                         if (isReadingMode) x -= renderHeight * 0.3;
                         if (x < MARGIN_X) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
+                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeightActual, dir: textDirection };
                     }
-                    let cx = x + (renderHeight - renderWidth) / 2;
-                    currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, drawCanvas.height, cx, y, renderWidth, renderHeight);
+                    const sourceY = Math.max(0, charData.minY - charData.topPad);
+                    
+                    // 横はフルサイズ(100)のまま描画し、中心線を保つ
+                    currentCtx.drawImage(charData.img, 0, sourceY, 100, charData.actualHeight, x, y, renderHeight, renderHeightActual);
+                    
                     if (isReadingMode) {
                         currentCtx.font = `${Math.max(10, renderHeight * 0.3)}px -apple-system, sans-serif`; 
                         currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle";
-                        currentCtx.fillText(charData.phoneme, x + renderHeight + 4, y + renderHeight / 2);
+                        currentCtx.fillText(charData.phoneme, x + renderHeight + 4, y + renderHeightActual / 2);
                     }
-                    y += renderHeight;
+                    y += renderHeightActual;
                 }
             }
         }
         
-        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection });
+        let finalCursorHeight = renderHeight;
+        window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: finalCursorHeight, dir: textDirection });
         
         if (cursorIndex < 0) cursorIndex = 0;
         if (cursorIndex > typedSequence.length) cursorIndex = typedSequence.length;
@@ -964,9 +1023,9 @@
             if (isCursorVisible && cursorPage === i) {
                 ctx.beginPath(); ctx.strokeStyle = "#007aff"; ctx.lineWidth = 2;
                 if (textDirection === 'ttb') {
-                    ctx.moveTo(cursorX + 2, cursorY); ctx.lineTo(cursorX + cursorHeight - 2, cursorY);
+                    ctx.moveTo(cursorX + 2, cursorY); ctx.lineTo(cursorX + textRenderSize - 2, cursorY);
                 } else {
-                    ctx.moveTo(cursorX, cursorY + 2); ctx.lineTo(cursorX, cursorY + cursorHeight - 2);
+                    ctx.moveTo(cursorX, cursorY + 2); ctx.lineTo(cursorX, cursorY + textRenderSize - 2);
                 }
                 ctx.stroke();
             }
@@ -990,7 +1049,7 @@
         if (textDirection === 'ttb') {
             let closestX = positionsOnPage[0].x; let minXDist = Infinity;
             for (const pos of positionsOnPage) {
-                const dist = Math.abs(clickX - (pos.x + pos.height / 2)); 
+                const dist = Math.abs(clickX - (pos.x + textRenderSize / 2)); 
                 if (dist < minXDist) { minXDist = dist; closestX = pos.x; }
             }
             const positionsOnLine = positionsOnPage.filter(pos => pos.x === closestX);
@@ -1003,7 +1062,7 @@
         } else {
             let closestY = positionsOnPage[0].y; let minYDist = Infinity;
             for (const pos of positionsOnPage) {
-                const dist = Math.abs(clickY - (pos.y + pos.height / 2)); 
+                const dist = Math.abs(clickY - (pos.y + textRenderSize / 2)); 
                 if (dist < minYDist) { minYDist = dist; closestY = pos.y; }
             }
             const positionsOnLine = positionsOnPage.filter(pos => pos.y === closestY);
@@ -1030,11 +1089,6 @@
         typingTimeout = setTimeout(() => { startCursorBlink(); }, 500);
     }
     
-    function getContextForImage(img) {
-        const tempCanvas = document.createElement('canvas'); tempCanvas.width = drawCanvas.width; tempCanvas.height = drawCanvas.height;
-        const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0); return tempCtx;
-    }
-
     function downloadImageCombined() {
         if (pagesData.length === 0) return;
         const combinedCanvas = document.createElement('canvas');
@@ -1056,7 +1110,6 @@
         }
     }
 
-    // ★個別ダウンロード用モーダル制御
     function openDownloadModal() {
         if (pagesData.length === 0) return;
         const container = document.getElementById('downloadLinksContainer');
@@ -1065,11 +1118,8 @@
         pagesData.forEach((canvas, index) => {
             const dataUrl = canvas.toDataURL("image/png");
             const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = `artificial_text_page_${index + 1}.png`;
-            a.className = 'download-link-btn';
+            a.href = dataUrl; a.download = `artificial_text_page_${index + 1}.png`; a.className = 'download-link-btn';
             a.textContent = `📄 ページ ${index + 1} を保存`;
-            // ダウンロード後にモーダルを閉じる(任意)
             a.onclick = () => { setTimeout(closeDownloadModal, 500); };
             container.appendChild(a);
         });
@@ -1077,9 +1127,7 @@
         document.getElementById('downloadModal').style.display = 'flex';
     }
 
-    function closeDownloadModal() {
-        document.getElementById('downloadModal').style.display = 'none';
-    }
+    function closeDownloadModal() { document.getElementById('downloadModal').style.display = 'none'; }
 </script>
 </body>
 </html>
