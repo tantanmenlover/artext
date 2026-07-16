@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>人工文字作成エディタ</title>
+    <title>人工文字作成エディタ (コピペ・コマンド対応版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
@@ -36,7 +36,7 @@
         #documentContainer {
             background: #9ca3af; padding: 20px; border-radius: 8px; max-height: 60vh;
             overflow-y: auto; display: flex; flex-direction: column; align-items: center;
-            gap: 20px; border: 1px inset #888;
+            gap: 20px; border: 1px inset #888; position: relative;
         }
         .output-page {
             background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -65,7 +65,6 @@
         }
         .key-btn:active { background: #e5e5ea; transform: scale(0.95); }
         .key-btn.active-anim { background: #d1d5db !important; transform: scale(0.85) !important; }
-        
         .key-btn img { max-width: 28px; max-height: 24px; object-fit: contain; pointer-events: none; transition: max-height 0.2s; }
         
         .key-label { 
@@ -94,22 +93,10 @@
         .delete-badge { right: -8px; background: #ff3b30; }
         .duplicate-badge { left: -8px; background: #34c759; line-height: 14px; }
         
-        .drop-slot {
-            width: 14px; background: rgba(0, 122, 255, 0.05); border: 1px dashed rgba(0, 122, 255, 0.3);
-            border-radius: 4px; margin: 0 1px; display: none; transition: all 0.2s;
-        }
+        .drop-slot { width: 14px; background: rgba(0, 122, 255, 0.05); border: 1px dashed rgba(0, 122, 255, 0.3); border-radius: 4px; margin: 0 1px; display: none; transition: all 0.2s; }
         .keyboard-wrapper.is-editing .drop-slot { display: block; }
         .drop-slot.drag-over { background: rgba(0, 122, 255, 0.3); width: 36px; border-style: solid; }
-
-        .row-drop-area {
-            width: 90%; height: 40px; margin: 0 auto; border: 2px dashed rgba(0, 122, 255, 0.4); border-radius: 8px;
-            display: flex; justify-content: center; align-items: center; color: #007aff; font-size: 13px; font-weight: bold; background: rgba(0, 122, 255, 0.05);
-            cursor: pointer; touch-action: manipulation;
-        }
-        .row-drop-area.drag-over { background: rgba(0, 122, 255, 0.2); border-style: solid; }
         
-        @keyframes jiggle { 0% { transform: rotate(-1deg); } 100% { transform: rotate(1deg); } }
-
         .controls { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         button { padding: 8px 12px; border: none; border-radius: 6px; background: #007aff; color: white; cursor: pointer; font-weight: 500; touch-action: manipulation; }
         button:hover { background: #0056b3; }
@@ -117,40 +104,42 @@
         .btn-danger { background: #ffcccc; border: 1px solid #ff9999; color: #cc0000; }
         .btn-warning { background: #ff9500; }
         input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 120px; font-size: 16px; }
-        input[type="file"] { padding: 8px; font-size: 0.9em; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
         .tab { padding: 6px 12px; border-radius: 16px; background: #e5e5ea; cursor: pointer; font-size: 0.9em; touch-action: manipulation; }
         .tab.active { background: #007aff; color: white; }
 
-        #editBanner {
-            display: none; background: #e5f0ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; font-weight: bold; color: #0056b3;
-            border: 1px solid #cce0ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.85em;
-        }
-
         .line-width-selector { display: flex; gap: 15px; align-items: center; margin-top: 8px; font-size: 0.9em; color: #333; flex-wrap: wrap; }
-        .line-width-selector label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
         .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer; }
-        .toggle-switch input { transform: scale(1.2); cursor: pointer; }
         .slider-container { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 10px; }
         .slider-container input[type="range"] { flex-grow: 1; }
         select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9em; font-family: inherit; }
         
-        #downloadModal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;
+        /* ★コピーペースト用ツールバー */
+        .toolbar {
+            display: flex; gap: 5px; background: #e5e5ea; padding: 6px; border-radius: 8px; margin-bottom: 10px; overflow-x: auto;
         }
-        #downloadModalContent {
-            background: #fff; padding: 20px; border-radius: 12px; width: 95%; max-width: 500px;
-            max-height: 90vh; overflow-y: hidden; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            display: flex; flex-direction: column;
+        .toolbar button {
+            background: #fff; color: #007aff; border: 1px solid #ccc; font-size: 0.85em; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        #downloadLinksContainer {
-            overflow-y: auto; flex-grow: 1; border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #f9f9f9;
+        .toolbar button:active { background: #f0f0f0; }
+
+        /* トースト通知 */
+        #toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px;
+            font-size: 14px; z-index: 10000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
         }
+        
+        #downloadModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; }
+        #downloadModalContent { background: #fff; padding: 20px; border-radius: 12px; width: 95%; max-width: 500px; max-height: 90vh; overflow-y: hidden; text-align: center; display: flex; flex-direction: column; }
+        #downloadLinksContainer { overflow-y: auto; flex-grow: 1; border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #f9f9f9; }
     </style>
 </head>
 <body>
+
+    <!-- トースト通知用要素 -->
+    <div id="toast">コピーしました</div>
 
     <div class="section" style="background: #eef7ff; border-color: #bbddef;">
         <h3>0. データの共有（エクスポート / インポート）</h3>
@@ -167,7 +156,7 @@
     </div>
 
     <div class="section">
-        <h3>1. 文字をつくる/編集する</h3>
+        <h3>1. 文字をつくる / 編集する</h3>
         <canvas id="drawCanvas" width="200" height="200"></canvas>
         <div class="line-width-selector">
             <span>線の太さ:</span>
@@ -209,17 +198,13 @@
             </div>
         </div>
         
-        <div id="editBanner">
-            [編集] 長押しでドラッグ移動・スワップ(交換)が可能です。<br>※システムキー(↑、123等)の上に落とすとページ間移動します。
-        </div>
-
         <div class="keyboard-wrapper" id="keyboardWrapper">
             <div id="keysContainer" style="width: 100%;"></div>
             
             <div class="system-row">
                 <div id="sysBtn123" class="key-btn key-system sys-drop-target" style="min-width: 42px;" onclick="toggleNumbersPage()">123</div>
-                <div class="key-btn key-space" onclick="processInput('空白')">空白</div>
-                <div class="key-btn key-return" onclick="processInput('改行')">改行</div>
+                <div class="key-btn key-space" onclick="clickVirtualKey('空白', '空白')">空白</div>
+                <div class="key-btn key-return" onclick="clickVirtualKey('改行', '改行')">改行</div>
             </div>
         </div>
     </div>
@@ -227,6 +212,15 @@
     <div class="section">
         <h3>3. 完成した文章</h3>
         
+        <!-- ★コピペ用ツールバー -->
+        <div class="toolbar">
+            <button onclick="selectAllText()">全選択 (Ctrl+A)</button>
+            <button onclick="copyText()">コピー (Ctrl+C)</button>
+            <button onclick="cutText()">カット (Ctrl+X)</button>
+            <button onclick="pasteText()">ペースト (Ctrl+V)</button>
+            <button class="btn-danger" style="margin-left: auto; border:none; background:#ff3b30; color:white;" onclick="clearOutput()">全消去</button>
+        </div>
+
         <div class="slider-container">
             <span style="font-weight: bold; font-size: 0.9em; min-width: 80px;">文字サイズ:</span>
             <input type="range" id="textSizeSlider" min="20" max="100" value="50" oninput="changeTextSize()">
@@ -240,17 +234,13 @@
                 <option value="rtl">右から左 (横書き)</option>
                 <option value="ttb">上から下 (縦書き)</option>
             </select>
-        </div>
-        
-        <div class="controls" style="justify-content: space-between; margin-bottom: 10px;">
-            <label class="toggle-switch">
-                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)を表示
+            <label class="toggle-switch" style="margin-left: 10px;">
+                <input type="checkbox" id="toggleReading" onchange="toggleReadingUI()"> ルビ(読み)
             </label>
-            <button class="btn-danger" style="background: #ff3b30; color: white; border: none; padding: 4px 8px; font-size: 0.85em;" onclick="clearOutput()">全消去</button>
         </div>
 
         <div id="documentContainer">
-            <!-- ここに自動でページ（Canvas）が追加されます -->
+            <!-- 自動ページネーション -->
         </div>
         
         <div class="controls" style="margin-top: 15px; display: flex; gap: 10px;">
@@ -259,11 +249,12 @@
         </div>
     </div>
 
+    <!-- 保存モーダル -->
     <div id="downloadModal">
         <div id="downloadModalContent">
             <h3 style="margin-top: 0; color: #333;">画像の保存</h3>
             <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
-                スマホの場合はプレビュー画像を<strong>長押し</strong>して「写真に追加」や「保存」を選択してください。PCの場合は右クリックから保存できます。
+                プレビュー画像を<strong>長押し</strong>して「写真に追加」を選択、PCは右クリックから保存してください。
             </p>
             <div id="downloadLinksContainer"></div>
             <button class="btn-secondary" style="width: 100%; margin-top: 15px; padding: 12px; font-weight: bold;" onclick="closeDownloadModal()">閉じる</button>
@@ -271,9 +262,9 @@
     </div>
 
 <script>
-    const STORAGE_KEY_DICT_V25 = 'artificial_text_dict_v25';
-    const STORAGE_KEY_LAYOUTS_V25 = 'artificial_text_layouts_v25';
-    const STORAGE_KEY_DOC_V25 = 'artificial_text_doc_v25';
+    const STORAGE_KEY_DICT_V26 = 'artificial_text_dict_v26';
+    const STORAGE_KEY_LAYOUTS_V26 = 'artificial_text_layouts_v26';
+    const STORAGE_KEY_DOC_V26 = 'artificial_text_doc_v26';
 
     const DPI = 2;
 
@@ -294,6 +285,7 @@
     let textDirection = 'ltr'; 
 
     let cursorIndex = 0; 
+    let selectionAnchor = null; // ★選択範囲の開始位置（nullなら選択なし）
 
     const PAGE_WIDTH = 600 * DPI;
     const PAGE_HEIGHT = Math.floor(PAGE_WIDTH * 1.414); 
@@ -308,45 +300,102 @@
     let cursorBlinkTimer = null; let typingTimeout = null;
 
     const DEFAULT_LAYOUTS = {
-        lower: [
-            ['q','w','e','r','t','y','u','i','o','p'],
-            ['a','s','d','f','g','h','j','k','l'],
-            ['z','x','c','v','b','n','m'], []
-        ],
-        upper: [
-            ['Q','W','E','R','T','Y','U','I','O','P'],
-            ['A','S','D','F','G','H','J','K','L'],
-            ['Z','X','C','V','B','N','M'], []
-        ],
-        numbers: [
-            ['1','2','3','4','5','6','7','8','9','0'],
-            ['-','/',':',';','(',')','$','&','@','"'],
-            ['.',',','?','!','\''], []
-        ],
-        symbols: [
-            ['[',']','{','}','#','%','^','*','+','='],
-            ['_','\\','|','~','<','>','$','£','¥','•'],
-            ['.',',','?','!','\''], []
-        ]
+        lower: [['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['z','x','c','v','b','n','m'], []],
+        upper: [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['Z','X','C','V','B','N','M'], []],
+        numbers: [['1','2','3','4','5','6','7','8','9','0'],['-','/',':',';','(',')','$','&','@','"'],['.',',','?','!','\''], []],
+        symbols: [['[',']','{','}','#','%','^','*','+','='],['_','\\','|','~','<','>','$','£','¥','•'],['.',',','?','!','\''], []]
     };
 
+    // --- 選択・コピペ系ヘルパー関数 ---
+    function hasSelection() { return selectionAnchor !== null && selectionAnchor !== cursorIndex; }
+    function clearSelection() { selectionAnchor = null; }
+    
+    function deleteSelection() {
+        if (!hasSelection()) return;
+        const start = Math.min(selectionAnchor, cursorIndex);
+        const end = Math.max(selectionAnchor, cursorIndex);
+        typedSequence.splice(start, end - start);
+        cursorIndex = start;
+        clearSelection();
+        saveDocumentData();
+    }
+
+    function sequenceToString(seq) {
+        return seq.map(item => {
+            if (item === '改行') return '\n';
+            if (item === '空白') return ' ';
+            if (charDictionary[item]) return charDictionary[item].phoneme;
+            return item;
+        }).join('');
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg; toast.style.opacity = '1';
+        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    }
+
+    async function copyText() {
+        let text = "";
+        if (hasSelection()) {
+            const start = Math.min(selectionAnchor, cursorIndex);
+            const end = Math.max(selectionAnchor, cursorIndex);
+            text = sequenceToString(typedSequence.slice(start, end));
+        } else {
+            text = sequenceToString(typedSequence);
+        }
+        if (!text) { showToast("コピーする文字がありません"); return; }
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast("コピーしました");
+        } catch (err) { alert("コピーに失敗しました。"); }
+    }
+
+    async function cutText() {
+        if (!hasSelection()) { selectionAnchor = 0; cursorIndex = typedSequence.length; }
+        if (typedSequence.length === 0) return;
+        await copyText();
+        deleteSelection();
+        renderOutputToCache();
+    }
+
+    async function pasteText() {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) return;
+            if (hasSelection()) deleteSelection();
+            
+            // 1文字ずつ流し込んで合字処理を発動させる
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '\n') processInput('改行');
+                else if (char === ' ') processInput('空白');
+                else processInput(char);
+            }
+            showToast("ペーストしました");
+        } catch (err) {
+            alert("ペーストに失敗しました。ブラウザのクリップボード許可を確認してください。");
+        }
+    }
+
+    function selectAllText() {
+        selectionAnchor = 0;
+        cursorIndex = typedSequence.length;
+        renderOutputToCache();
+        showToast("全選択しました");
+    }
+
     function saveDocumentData() {
-        const docData = {
-            sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode
-        };
-        localStorage.setItem(STORAGE_KEY_DOC_V25, JSON.stringify(docData));
+        const docData = { sequence: typedSequence, textSize: textRenderSize, direction: textDirection, readingMode: isReadingMode };
+        localStorage.setItem(STORAGE_KEY_DOC_V26, JSON.stringify(docData));
     }
 
     function exportData() {
-        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V25);
-        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V25);
-        const docData = localStorage.getItem(STORAGE_KEY_DOC_V25);
-        
+        const dictData = localStorage.getItem(STORAGE_KEY_DICT_V26);
+        const layoutData = localStorage.getItem(STORAGE_KEY_LAYOUTS_V26);
+        const docData = localStorage.getItem(STORAGE_KEY_DOC_V26);
         if (!dictData || dictData === '{}') { alert("エクスポートするデータがありません！"); return; }
-        
-        const exportObj = { 
-            dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {}
-        };
+        const exportObj = { dict: JSON.parse(dictData), layouts: JSON.parse(layoutData), doc: docData ? JSON.parse(docData) : {} };
         const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a'); link.href = url; link.download = 'artificial_text_data.json'; link.click(); URL.revokeObjectURL(url);
@@ -359,29 +408,24 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 if (importedData.dict && importedData.layouts) {
-                    localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(importedData.dict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(importedData.layouts));
-                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V25, JSON.stringify(importedData.doc));
+                    localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(importedData.dict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(importedData.layouts));
+                    if (importedData.doc) localStorage.setItem(STORAGE_KEY_DOC_V26, JSON.stringify(importedData.doc));
                 } else {
-                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V25)) || {};
-                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V25)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
+                    const currentDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V26)) || {};
+                    const currentLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V26)) || { custom1: [[]], custom2: [[]], lower: DEFAULT_LAYOUTS.lower, upper: DEFAULT_LAYOUTS.upper, numbers: DEFAULT_LAYOUTS.numbers, symbols: DEFAULT_LAYOUTS.symbols };
                     for (const phoneme in importedData) {
                         if (typeof importedData[phoneme] === 'string') {
                             const newId = 'id-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
                             currentDict[newId] = { phoneme: phoneme, url: importedData[phoneme], actualWidth: 50*DPI, leftPad: 2*DPI, rightPad: 2*DPI, actualHeight: 50*DPI, topPad: 2*DPI, bottomPad: 2*DPI, minX: 25*DPI, minY: 25*DPI };
-                            
-                            // ★追加: カスタムタブへの追加時に自動で折り返す
                             if (currentLayouts.custom1.length === 0) currentLayouts.custom1.push([]);
                             let targetRow = currentLayouts.custom1[currentLayouts.custom1.length - 1];
-                            if (targetRow.length >= 10) {
-                                currentLayouts.custom1.push([newId]);
-                            } else {
-                                targetRow.push(newId);
-                            }
+                            if (targetRow.length >= 10) currentLayouts.custom1.push([newId]);
+                            else targetRow.push(newId);
                         }
                     }
-                    localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(currentDict));
-                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(currentLayouts));
+                    localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(currentDict));
+                    localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(currentLayouts));
                 }
                 alert("データを取り込みました！"); location.reload();
             } catch (error) { alert("読み込みに失敗しました。"); }
@@ -391,7 +435,7 @@
 
     function clearAllData() {
         if (confirm("登録したすべての文字と文章データが消えます。本当によろしいですか？")) {
-            localStorage.removeItem(STORAGE_KEY_DICT_V25); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V25); localStorage.removeItem(STORAGE_KEY_DOC_V25); location.reload();
+            localStorage.removeItem(STORAGE_KEY_DICT_V26); localStorage.removeItem(STORAGE_KEY_LAYOUTS_V26); localStorage.removeItem(STORAGE_KEY_DOC_V26); location.reload();
         }
     }
 
@@ -400,7 +444,6 @@
     function cleanGhostIds() {
         const isGhost = (val) => typeof val === 'string' && val.startsWith('id-') && !charDictionary[val];
         const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
-
         ['custom1', 'custom2'].forEach(cPage => {
             if (Array.isArray(layouts[cPage])) {
                 layouts[cPage] = layouts[cPage].map(row => row.filter(v => !isGhost(v) && !isBaseUnregistered(v) && v !== ''));
@@ -408,7 +451,6 @@
             }
             if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
         });
-
         ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
             for(let r = 0; r < 4; r++) {
                 layouts[page][r] = layouts[page][r].filter(v => !isGhost(v) && v !== '');
@@ -460,10 +502,10 @@
     }
 
     window.onload = () => {
-        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V25)) || JSON.parse(localStorage.getItem('artificial_text_dict_v24')) || {};
-        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V25)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v24'));
+        const savedDict = JSON.parse(localStorage.getItem(STORAGE_KEY_DICT_V26)) || JSON.parse(localStorage.getItem('artificial_text_dict_v25')) || {};
+        const savedLayouts = JSON.parse(localStorage.getItem(STORAGE_KEY_LAYOUTS_V26)) || JSON.parse(localStorage.getItem('artificial_text_layouts_v25'));
         
-        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V25)) || JSON.parse(localStorage.getItem('artificial_text_doc_v24'));
+        const savedDoc = JSON.parse(localStorage.getItem(STORAGE_KEY_DOC_V26)) || JSON.parse(localStorage.getItem('artificial_text_doc_v25'));
         if (savedDoc) {
             typedSequence = savedDoc.sequence || []; cursorIndex = typedSequence.length;
             if (savedDoc.textSize) { textRenderSize = savedDoc.textSize; document.getElementById('textSizeSlider').value = textRenderSize; document.getElementById('textSizeLabel').textContent = textRenderSize + 'px'; }
@@ -488,32 +530,24 @@
                 const data = savedDict[id]; const img = new Image();
                 img.onload = () => {
                     let charInfo = { ...data, img: img };
-                    
                     if (img.width === 100 && !charInfo.migratedToV23) {
                         const tempCanvas = document.createElement('canvas'); tempCanvas.width = 200; tempCanvas.height = 200;
                         const tempCtx = tempCanvas.getContext('2d');
-                        tempCtx.imageSmoothingEnabled = false; 
-                        tempCtx.drawImage(img, 0, 0, 200, 200);
+                        tempCtx.imageSmoothingEnabled = false; tempCtx.drawImage(img, 0, 0, 200, 200);
                         
                         charInfo.url = tempCanvas.toDataURL("image/png");
                         const newImg = new Image();
                         newImg.onload = () => {
                             charInfo.img = newImg;
                             charInfo.actualWidth *= 2; charInfo.actualHeight *= 2;
-                            charInfo.leftPad *= 2; charInfo.rightPad *= 2;
-                            charInfo.topPad *= 2; charInfo.bottomPad *= 2;
-                            charInfo.minX *= 2; charInfo.minY *= 2;
+                            charInfo.leftPad *= 2; charInfo.rightPad *= 2; charInfo.topPad *= 2; charInfo.bottomPad *= 2; charInfo.minX *= 2; charInfo.minY *= 2;
                             charInfo.migratedToV23 = true;
-                            
                             charDictionary[id] = charInfo; loadedCount++;
                             if (loadedCount === totalKeys) finalizeLoad();
                         };
-                        newImg.src = charInfo.url;
-                        return; 
+                        newImg.src = charInfo.url; return; 
                     }
-                    
-                    charInfo.migratedToV23 = true;
-                    charDictionary[id] = charInfo; loadedCount++;
+                    charInfo.migratedToV23 = true; charDictionary[id] = charInfo; loadedCount++;
                     if (loadedCount === totalKeys) finalizeLoad();
                 };
                 img.src = data.url;
@@ -521,7 +555,7 @@
         }
         
         window.addEventListener('resize', adjustKeyboardScale);
-        document.getElementById('documentContainer').addEventListener('click', handleDocumentClick);
+        setupPointerSelection();
     };
 
     function saveDataToStorage() {
@@ -533,36 +567,27 @@
                 actualHeight: charDictionary[id].actualHeight, topPad: charDictionary[id].topPad, bottomPad: charDictionary[id].bottomPad, minY: charDictionary[id].minY
             };
         }
-        localStorage.setItem(STORAGE_KEY_DICT_V25, JSON.stringify(dictToSave));
-        localStorage.setItem(STORAGE_KEY_LAYOUTS_V25, JSON.stringify(layouts));
+        localStorage.setItem(STORAGE_KEY_DICT_V26, JSON.stringify(dictToSave));
+        localStorage.setItem(STORAGE_KEY_LAYOUTS_V26, JSON.stringify(layouts));
     }
 
     const drawCanvas = document.getElementById('drawCanvas');
     const dCtx = drawCanvas.getContext('2d');
     let isDrawing = false;
     
-    function setLineWidth(width) {
-        currentLineWidth = parseInt(width);
-        dCtx.lineWidth = currentLineWidth * DPI; 
-    }
+    function setLineWidth(width) { currentLineWidth = parseInt(width); dCtx.lineWidth = currentLineWidth * DPI; }
     dCtx.strokeStyle = "black"; dCtx.lineWidth = currentLineWidth * DPI; dCtx.lineCap = "round";
 
     function getCanvasPoint(e) {
         const rect = drawCanvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left) * (drawCanvas.width / rect.width),
-            y: (e.clientY - rect.top) * (drawCanvas.height / rect.height)
-        };
+        return { x: (e.clientX - rect.left) * (drawCanvas.width / rect.width), y: (e.clientY - rect.top) * (drawCanvas.height / rect.height) };
     }
 
     drawCanvas.addEventListener('pointerdown', (e) => { isDrawing = true; dCtx.beginPath(); const pt = getCanvasPoint(e); dCtx.moveTo(pt.x, pt.y); });
     drawCanvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; const pt = getCanvasPoint(e); dCtx.lineTo(pt.x, pt.y); dCtx.stroke(); });
     window.addEventListener('pointerup', () => { isDrawing = false; });
 
-    function clearDrawCanvas() { 
-        dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); 
-        dCtx.lineWidth = currentLineWidth * DPI; currentEditingId = null; document.getElementById('phonemeInput').value = '';
-    }
+    function clearDrawCanvas() { dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); dCtx.lineWidth = currentLineWidth * DPI; currentEditingId = null; document.getElementById('phonemeInput').value = ''; }
 
     function uploadCharImage(event) {
         const file = event.target.files[0]; if (!file) return;
@@ -578,8 +603,7 @@
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(file);
-        event.target.value = ''; 
+        reader.readAsDataURL(file); event.target.value = ''; 
     }
 
     function saveCharacter() {
@@ -588,11 +612,8 @@
 
         const autoTrim = document.getElementById('autoTrimCheckbox').checked;
         let bounds;
-        if (autoTrim) {
-            bounds = getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height);
-        } else {
-            bounds = { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
-        }
+        if (autoTrim) bounds = getCharacterBoundsFromCtx(dCtx, drawCanvas.width, drawCanvas.height);
+        else bounds = { minX: 0, maxX: drawCanvas.width - 1, minY: 0, maxY: drawCanvas.height - 1 };
         
         const padSize = 2 * DPI; 
         const leftPad = (bounds.minX === 0) ? 0 : padSize; const rightPad = (bounds.maxX === drawCanvas.width - 1) ? 0 : padSize;
@@ -601,7 +622,6 @@
         const actualHeight = bounds.maxY - bounds.minY + 1;
         
         const dataUrl = drawCanvas.toDataURL("image/png");
-
         let targetId = currentEditingId; let isNew = false;
         if (!targetId || !charDictionary[targetId]) { targetId = generateId(); isNew = true; }
 
@@ -610,21 +630,14 @@
             charDictionary[targetId] = { 
                 phoneme: phoneme, img: img, url: dataUrl, minX: bounds.minX, minY: bounds.minY,
                 actualWidth: actualWidth + leftPad + rightPad, leftPad: leftPad, rightPad: rightPad, 
-                actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad,
-                migratedToV23: true
+                actualHeight: actualHeight + topPad + bottomPad, topPad: topPad, bottomPad: bottomPad, migratedToV23: true
             };
             
             if (isNew) {
                 const cPage = 'custom' + customPageNum;
                 if (!layouts[cPage] || layouts[cPage].length === 0) layouts[cPage] = [[]];
-                
-                // ★追加: 登録時も10個で自動改行
                 let targetRow = layouts[cPage][layouts[cPage].length - 1];
-                if (targetRow.length >= 10) {
-                    layouts[cPage].push([targetId]);
-                } else {
-                    targetRow.push(targetId);
-                }
+                if (targetRow.length >= 10) layouts[cPage].push([targetId]); else targetRow.push(targetId);
                 
                 let foundInQwerty = false;
                 ['lower', 'upper', 'numbers', 'symbols'].forEach(page => {
@@ -633,16 +646,12 @@
                         if (idx !== -1) { layouts[page][r][idx] = targetId; foundInQwerty = true; }
                     }
                 });
-                
                 if (!foundInQwerty) {
-                    if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = [];
-                    layouts[qwertyPage][3].push(targetId);
+                    if (!layouts[qwertyPage][3]) layouts[qwertyPage][3] = []; layouts[qwertyPage][3].push(targetId);
                 }
             }
-            
             cleanGhostIds(); repairCollapsedRows(); saveDataToStorage();
-            renderKeyboard(); clearDrawCanvas();
-            if(isEditMode) toggleEditMode();
+            renderKeyboard(); clearDrawCanvas(); if(isEditMode) toggleEditMode();
         };
         img.src = dataUrl;
     }
@@ -650,49 +659,38 @@
     function adjustKeyboardScale() {
         const wrapper = document.getElementById('keyboardWrapper');
         if (!wrapper) return;
-        const containerWidth = wrapper.parentElement.clientWidth;
-        const targetWidth = 390; 
+        const containerWidth = wrapper.parentElement.clientWidth; const targetWidth = 390; 
         if (containerWidth < targetWidth) {
             const scale = containerWidth / targetWidth;
-            wrapper.style.transform = `scale(${scale})`;
-            wrapper.style.width = `${targetWidth}px`;
-            wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
+            wrapper.style.transform = `scale(${scale})`; wrapper.style.width = `${targetWidth}px`; wrapper.style.marginBottom = `-${(1 - scale) * wrapper.clientHeight}px`;
         } else {
             wrapper.style.transform = 'none'; wrapper.style.width = 'max-content'; wrapper.style.marginBottom = '0';
         }
     }
 
     function switchMainLayout(tab) {
-        mainTab = tab;
-        document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
-        document.getElementById('tabQwerty').className = tab === 'qwerty' ? 'tab active' : 'tab';
-        renderKeyboard();
+        mainTab = tab; document.getElementById('tabCustom').className = tab === 'custom' ? 'tab active' : 'tab';
+        document.getElementById('tabQwerty').className = tab === 'qwerty' ? 'tab active' : 'tab'; renderKeyboard();
     }
 
     function toggleShiftPage() { qwertyPage = (qwertyPage === 'lower') ? 'upper' : 'lower'; renderKeyboard(); }
     function toggleNumbersPage() {
-        if (qwertyPage === 'numbers' || qwertyPage === 'symbols') qwertyPage = 'lower';
-        else qwertyPage = 'numbers';
-        renderKeyboard();
+        if (qwertyPage === 'numbers' || qwertyPage === 'symbols') qwertyPage = 'lower'; else qwertyPage = 'numbers'; renderKeyboard();
     }
 
     function toggleEditMode() {
         isEditMode = !isEditMode;
         const btn = document.getElementById('editToggleBtn');
-        btn.textContent = isEditMode ? '編集モードOFF' : '編集モードON';
-        btn.className = isEditMode ? 'btn-danger' : 'btn-warning';
+        btn.textContent = isEditMode ? '編集モードOFF' : '編集モードON'; btn.className = isEditMode ? 'btn-danger' : 'btn-warning';
         document.getElementById('editBanner').style.display = isEditMode ? 'block' : 'none';
-        
         const wrapper = document.getElementById('keyboardWrapper');
-        if (isEditMode) wrapper.classList.add('is-editing');
-        else wrapper.classList.remove('is-editing');
+        if (isEditMode) wrapper.classList.add('is-editing'); else wrapper.classList.remove('is-editing');
         renderKeyboard();
     }
 
     function toggleKeyLabelsUI() {
         const wrapper = document.getElementById('keyboardWrapper');
-        if (document.getElementById('toggleKeyLabels').checked) wrapper.classList.remove('hide-key-labels');
-        else wrapper.classList.add('hide-key-labels');
+        if (document.getElementById('toggleKeyLabels').checked) wrapper.classList.remove('hide-key-labels'); else wrapper.classList.add('hide-key-labels');
     }
 
     function toggleReadingUI() { isReadingMode = document.getElementById('toggleReading').checked; saveDocumentData(); renderOutputToCache(); }
@@ -701,8 +699,7 @@
 
     function createDropSlot(layoutName, rowIndex, slotIndex) {
         const slot = document.createElement('div'); slot.className = 'drop-slot';
-        slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); };
-        slot.ondragleave = () => { slot.classList.remove('drag-over'); };
+        slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('drag-over'); }; slot.ondragleave = () => { slot.classList.remove('drag-over'); };
         slot.ondrop = (e) => { e.preventDefault(); slot.classList.remove('drag-over'); handleInsertDrop(layoutName, rowIndex, slotIndex); };
         return slot;
     }
@@ -722,25 +719,18 @@
 
     function handleSwapDrop(targetLayout, targetRow, targetIndex) {
         if (!dragSource) return;
-        const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
-        const targetArray = getLayoutArray(targetLayout, targetRow);
-        const sourceItem = sourceArray[dragSource.index];
-        const targetItem = targetArray[targetIndex];
+        const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const targetArray = getLayoutArray(targetLayout, targetRow);
+        const sourceItem = sourceArray[dragSource.index]; const targetItem = targetArray[targetIndex];
         const isBaseUnregistered = (val) => typeof val === 'string' && !val.startsWith('id-') && !charDictionary[val];
         
-        if (isBaseUnregistered(targetItem)) {
-            sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem;
-        } else {
-            const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp;
-        }
+        if (isBaseUnregistered(targetItem)) { sourceArray.splice(dragSource.index, 1); targetArray[targetIndex] = sourceItem; } 
+        else { const temp = targetArray[targetIndex]; targetArray[targetIndex] = sourceItem; sourceArray[dragSource.index] = temp; }
         cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
     }
 
     function handleSystemDrop(targetPage) {
         if (!dragSource) return;
-        const sourceArray = getLayoutArray(dragSource.layout, dragSource.row);
-        const item = sourceArray.splice(dragSource.index, 1)[0];
-        
+        const sourceArray = getLayoutArray(dragSource.layout, dragSource.row); const item = sourceArray.splice(dragSource.index, 1)[0];
         if (targetPage.startsWith('custom')) {
             if (layouts[targetPage].length === 0) layouts[targetPage].push([]);
             layouts[targetPage][layouts[targetPage].length - 1].push(item);
@@ -759,17 +749,13 @@
     }
 
     function renderKeyboard() {
-        const container = document.getElementById('keysContainer');
-        container.innerHTML = '';
-
+        const container = document.getElementById('keysContainer'); container.innerHTML = '';
         const sysBtn123 = document.getElementById('sysBtn123');
         if (mainTab === 'custom') {
-            sysBtn123.textContent = customPageNum === 1 ? 'ページ 2' : 'ページ 1';
-            sysBtn123.onclick = () => { customPageNum = customPageNum === 1 ? 2 : 1; renderKeyboard(); };
+            sysBtn123.textContent = customPageNum === 1 ? 'ページ 2' : 'ページ 1'; sysBtn123.onclick = () => { customPageNum = customPageNum === 1 ? 2 : 1; renderKeyboard(); };
             setupSystemDropTarget(sysBtn123, customPageNum === 1 ? 'custom2' : 'custom1');
         } else {
-            sysBtn123.textContent = (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'ABC' : '123';
-            sysBtn123.onclick = toggleNumbersPage;
+            sysBtn123.textContent = (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'ABC' : '123'; sysBtn123.onclick = toggleNumbersPage;
             setupSystemDropTarget(sysBtn123, (qwertyPage === 'numbers' || qwertyPage === 'symbols') ? 'lower' : 'numbers');
         }
 
@@ -789,34 +775,24 @@
 
                 if (rowIndex === layouts[cPage].length - 1 && rowArray.length === 0 && isEditMode) {
                     const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (新しい列)';
-                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); };
-                    dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
+                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(cPage, rowIndex, 0); };
                     rowDiv.appendChild(dropArea);
                 }
-
                 if (rowArray.length > 0 || (rowIndex === layouts[cPage].length - 1 && isEditMode)) container.appendChild(rowDiv);
             });
-
         } else if (mainTab === 'qwerty') {
             const activeLayout = layouts[qwertyPage];
             activeLayout.forEach((rowArray, rowIndex) => {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = rowIndex === 3 ? 'keyboard-container' : 'keyboard-row';
-                
+                const rowDiv = document.createElement('div'); rowDiv.className = rowIndex === 3 ? 'keyboard-container' : 'keyboard-row';
                 if (rowIndex === 1 && (qwertyPage === 'lower' || qwertyPage === 'upper')) rowDiv.style.paddingLeft = '13px';
                 if (rowIndex === 2) rowDiv.style.paddingLeft = '19px';
                 
                 if (rowIndex === 2) {
-                    const shiftBtn = document.createElement('div');
-                    shiftBtn.className = 'key-btn key-system sys-drop-target';
-                    if (qwertyPage === 'numbers') {
-                        shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols');
-                    } else if (qwertyPage === 'symbols') {
-                        shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers');
-                    } else {
-                        shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower');
-                    }
+                    const shiftBtn = document.createElement('div'); shiftBtn.className = 'key-btn key-system sys-drop-target';
+                    if (qwertyPage === 'numbers') { shiftBtn.textContent = '#+='; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'symbols'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'symbols'); } 
+                    else if (qwertyPage === 'symbols') { shiftBtn.textContent = '123'; shiftBtn.style.fontSize = '14px'; shiftBtn.onclick = () => { qwertyPage = 'numbers'; renderKeyboard(); }; setupSystemDropTarget(shiftBtn, 'numbers'); } 
+                    else { shiftBtn.textContent = (qwertyPage === 'upper') ? '⬇︎' : '⬆︎'; shiftBtn.style.fontSize = '22px'; shiftBtn.onclick = toggleShiftPage; setupSystemDropTarget(shiftBtn, (qwertyPage === 'lower') ? 'upper' : 'lower'); }
                     rowDiv.appendChild(shiftBtn);
                 }
 
@@ -829,8 +805,7 @@
 
                 if (rowIndex === 3 && rowArray.length === 0 && isEditMode) {
                     const dropArea = document.createElement('div'); dropArea.className = 'row-drop-area'; dropArea.textContent = '+ ここにキーを追加 (4列目)';
-                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); };
-                    dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
+                    dropArea.ondragover = (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); }; dropArea.ondragleave = () => { dropArea.classList.remove('drag-over'); };
                     dropArea.ondrop = (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleInsertDrop(qwertyPage, 3, 0); };
                     rowDiv.appendChild(dropArea);
                 }
@@ -847,6 +822,13 @@
         adjustKeyboardScale();
     }
 
+    // ★仮想キーのクリック処理
+    function clickVirtualKey(inputVal, displayLabel) {
+        if (hasSelection()) deleteSelection();
+        processInput(inputVal);
+        triggerKeyAnimation(displayLabel);
+    }
+
     function createKeyElement(itemValue, layoutName, rowIndex, keyIndex) {
         const isRegistered = !!charDictionary[itemValue];
         const charData = isRegistered ? charDictionary[itemValue] : null;
@@ -856,32 +838,24 @@
         if (!isRegistered) btn.classList.add('key-empty');
         
         if (isEditMode && isRegistered) {
-            btn.classList.add('key-edit-mode', 'movable');
-            btn.draggable = true;
+            btn.classList.add('key-edit-mode', 'movable'); btn.draggable = true;
             btn.ondragstart = (e) => { dragSource = { layout: layoutName, row: rowIndex, index: keyIndex, item: itemValue }; e.dataTransfer.effectAllowed = 'move'; };
         }
-
         if (isEditMode) {
-            btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-swap'); };
-            btn.ondragleave = () => { btn.classList.remove('drag-over-swap'); };
+            btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-swap'); }; btn.ondragleave = () => { btn.classList.remove('drag-over-swap'); };
             btn.ondrop = (e) => { e.preventDefault(); btn.classList.remove('drag-over-swap'); handleSwapDrop(layoutName, rowIndex, keyIndex); };
         }
-
-        if (isRegistered) {
-            const imgElement = document.createElement('img'); imgElement.src = charData.url; btn.appendChild(imgElement);
-        }
+        if (isRegistered) { const imgElement = document.createElement('img'); imgElement.src = charData.url; btn.appendChild(imgElement); }
         
         const label = document.createElement('span'); label.className = 'key-label'; label.textContent = displayLabel;
-        if (!isRegistered) label.style.fontSize = '1.2em';
-        btn.appendChild(label);
+        if (!isRegistered) label.style.fontSize = '1.2em'; btn.appendChild(label);
 
         btn.onclick = () => {
             if (isEditMode && isRegistered) {
                 clearDrawCanvas(); dCtx.drawImage(charData.img, 0, 0); document.getElementById('phonemeInput').value = charData.phoneme; currentEditingId = itemValue; window.scrollTo({ top: 0, behavior: 'smooth' });
             } else if (!isEditMode) {
-                const inputVal = isRegistered ? charData.phoneme : itemValue;
-                processInput(inputVal);
-                triggerKeyAnimation(displayLabel);
+                const inputVal = isRegistered ? itemValue : displayLabel;
+                clickVirtualKey(inputVal, displayLabel);
             }
         };
 
@@ -902,22 +876,22 @@
             delete charDictionary[id]; cleanGhostIds(); repairCollapsedRows(); saveDataToStorage(); renderKeyboard();
         }
     }
-
     function duplicateCharacter(id, layoutName, rowIndex, keyIndex) {
         const newId = generateId(); charDictionary[newId] = { ...charDictionary[id] };
         layouts[layoutName][rowIndex].splice(keyIndex + 1, 0, newId);
-        if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } 
-        else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
+        if (layoutName.startsWith('custom')) { layouts[qwertyPage][3].push(newId); } else { const cPage = 'custom' + customPageNum; if (layouts[cPage].length === 0) layouts[cPage].push([]); layouts[cPage][layouts[cPage].length - 1].push(newId); }
         saveDataToStorage(); renderKeyboard();
     }
 
     function createNewPage() {
-        const canvas = document.createElement('canvas');
-        canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
-        pagesData.push(canvas);
-        return ctx;
+        const canvas = document.createElement('canvas'); canvas.width = PAGE_WIDTH; canvas.height = PAGE_HEIGHT;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = "white"; ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT); pagesData.push(canvas); return ctx;
+    }
+
+    // ★選択範囲のハイライト描画用
+    function drawHighlight(ctx, x, y, w, h) {
+        ctx.fillStyle = "rgba(0, 122, 255, 0.3)";
+        ctx.fillRect(x, y, w, h);
     }
 
     function renderOutputToCache() {
@@ -941,25 +915,30 @@
             else { x = PAGE_WIDTH - MARGIN_X - renderHeight; y = MARGIN_Y; }
         }
 
+        const selMin = hasSelection() ? Math.min(selectionAnchor, cursorIndex) : -1;
+        const selMax = hasSelection() ? Math.max(selectionAnchor, cursorIndex) : -1;
+
         for (let i = 0; i < typedSequence.length; i++) {
             const item = typedSequence[i];
+            const isSelected = (i >= selMin && i < selMax);
             
             let thisCursorHeight = renderHeight;
-            if (textDirection === 'ttb' && charDictionary[item]) {
-                thisCursorHeight = charDictionary[item].actualHeight * scale;
-            }
+            if (textDirection === 'ttb' && charDictionary[item]) thisCursorHeight = charDictionary[item].actualHeight * scale;
             window.cachedCursorPositions.push({ page: currentPageIndex, x: x, y: y, height: thisCursorHeight, dir: textDirection });
 
             if (item === '改行') { 
                 if (textDirection === 'ltr') {
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.4, renderHeight);
                     x = MARGIN_X; y += renderHeight + lineSpacing;
                     if (isReadingMode) y += renderHeight * 0.3; 
                     if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                 } else if (textDirection === 'rtl') {
+                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.4, y, renderHeight*0.4, renderHeight);
                     x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
                     if (isReadingMode) y += renderHeight * 0.3; 
                     if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                 } else {
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.4);
                     y = MARGIN_Y; x -= renderHeight + lineSpacing;
                     if (isReadingMode) x -= renderHeight * 0.3;
                     if (x < MARGIN_X) newPageLogic();
@@ -969,26 +948,17 @@
             
             if (item === '空白') { 
                 if (textDirection === 'ltr') {
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight*0.6, renderHeight);
                     x += renderHeight * 0.6; 
-                    if (x > PAGE_WIDTH - MARGIN_X) {
-                        x = MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                    }
+                    if (x > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
                 } else if (textDirection === 'rtl') {
+                    if(isSelected) drawHighlight(currentCtx, x - renderHeight*0.6, y, renderHeight*0.6, renderHeight);
                     x -= renderHeight * 0.6; 
-                    if (x < MARGIN_X) {
-                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                    }
+                    if (x < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); }
                 } else {
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight*0.6);
                     y += renderHeight * 0.6;
-                    if (y > PAGE_HEIGHT - MARGIN_Y) {
-                        y = MARGIN_Y; x -= renderHeight + lineSpacing;
-                        if (isReadingMode) x -= renderHeight * 0.3;
-                        if (x < MARGIN_X) newPageLogic();
-                    }
+                    if (y > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); }
                 }
                 continue; 
             }
@@ -998,16 +968,14 @@
                 if (textDirection === 'ltr') {
                     const renderWidthActual = charData.actualWidth * scale;
                     if (x + renderWidthActual > PAGE_WIDTH - MARGIN_X) { 
-                        x = MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                        x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
                     }
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderWidthActual, renderHeight);
                     const sourceX = Math.max(0, charData.minX - charData.leftPad);
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x, y, renderWidthActual, renderHeight);
                     if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; 
-                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
+                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
                         currentCtx.fillText(charData.phoneme, x + renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI);
                     }
                     x += renderWidthActual; 
@@ -1015,16 +983,14 @@
                 else if (textDirection === 'rtl') {
                     const renderWidthActual = charData.actualWidth * scale;
                     if (x - renderWidthActual < MARGIN_X) {
-                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
+                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
                     }
+                    if(isSelected) drawHighlight(currentCtx, x - renderWidthActual, y, renderWidthActual, renderHeight);
                     const sourceX = Math.max(0, charData.minX - charData.leftPad);
                     currentCtx.drawImage(charData.img, sourceX, 0, charData.actualWidth, 200, x - renderWidthActual, y, renderWidthActual, renderHeight);
                     if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; 
-                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
+                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "center";
                         currentCtx.fillText(charData.phoneme, x - renderWidthActual / 2, y + renderHeight + Math.max(10*DPI, renderHeight * 0.3) + 2*DPI);
                     }
                     x -= renderWidthActual;
@@ -1032,58 +998,36 @@
                 else { 
                     const renderHeightActual = charData.actualHeight * scale;
                     if (y + renderHeightActual > PAGE_HEIGHT - MARGIN_Y) {
-                        y = MARGIN_Y; x -= renderHeight + lineSpacing;
-                        if (isReadingMode) x -= renderHeight * 0.3;
-                        if (x < MARGIN_X) newPageLogic();
+                        y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic();
                         window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeightActual, dir: textDirection };
                     }
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeightActual);
                     const sourceY = Math.max(0, charData.minY - charData.topPad);
                     currentCtx.drawImage(charData.img, 0, sourceY, 200, charData.actualHeight, x, y, renderHeight, renderHeightActual);
-                    
                     if (isReadingMode) {
-                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; 
-                        currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle";
+                        currentCtx.font = `${Math.max(10*DPI, renderHeight * 0.3)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#888888"; currentCtx.textAlign = "left"; currentCtx.textBaseline = "middle";
                         currentCtx.fillText(charData.phoneme, x + renderHeight + 4*DPI, y + renderHeightActual / 2);
                     }
                     y += renderHeightActual;
                 }
             } else if (typeof item === 'string') {
-                currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; 
-                currentCtx.fillStyle = "#bbbbbb"; 
-                currentCtx.textBaseline = "middle";
-                currentCtx.textAlign = "center";
-                
+                currentCtx.font = `${Math.max(12*DPI, renderHeight * 0.4)}px -apple-system, sans-serif`; currentCtx.fillStyle = "#bbbbbb"; currentCtx.textBaseline = "middle"; currentCtx.textAlign = "center";
                 const unregWidth = currentCtx.measureText(item).width + (renderHeight * 0.2);
                 
                 if (textDirection === 'ltr') {
-                    if (x + unregWidth > PAGE_WIDTH - MARGIN_X) { 
-                        x = MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
-                    }
-                    currentCtx.fillText(item, x + unregWidth / 2, y + renderHeight / 2);
-                    x += unregWidth; 
+                    if (x + unregWidth > PAGE_WIDTH - MARGIN_X) { x = MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
+                    if(isSelected) drawHighlight(currentCtx, x, y, unregWidth, renderHeight);
+                    currentCtx.fillText(item, x + unregWidth / 2, y + renderHeight / 2); x += unregWidth; 
                 } 
                 else if (textDirection === 'rtl') {
-                    if (x - unregWidth < MARGIN_X) {
-                        x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing;
-                        if (isReadingMode) y += renderHeight * 0.3;
-                        if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
-                    }
-                    currentCtx.fillText(item, x - unregWidth / 2, y + renderHeight / 2);
-                    x -= unregWidth;
+                    if (x - unregWidth < MARGIN_X) { x = PAGE_WIDTH - MARGIN_X; y += renderHeight + lineSpacing; if (isReadingMode) y += renderHeight * 0.3; if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
+                    if(isSelected) drawHighlight(currentCtx, x - unregWidth, y, unregWidth, renderHeight);
+                    currentCtx.fillText(item, x - unregWidth / 2, y + renderHeight / 2); x -= unregWidth;
                 }
                 else { 
-                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) {
-                        y = MARGIN_Y; x -= renderHeight + lineSpacing;
-                        if (isReadingMode) x -= renderHeight * 0.3;
-                        if (x < MARGIN_X) newPageLogic();
-                        window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection };
-                    }
-                    currentCtx.fillText(item, x + renderHeight / 2, y + renderHeight / 2);
-                    y += renderHeight;
+                    if (y + renderHeight > PAGE_HEIGHT - MARGIN_Y) { y = MARGIN_Y; x -= renderHeight + lineSpacing; if (isReadingMode) x -= renderHeight * 0.3; if (x < MARGIN_X) newPageLogic(); window.cachedCursorPositions[i] = { page: currentPageIndex, x: x, y: y, height: renderHeight, dir: textDirection }; }
+                    if(isSelected) drawHighlight(currentCtx, x, y, renderHeight, renderHeight);
+                    currentCtx.fillText(item, x + renderHeight / 2, y + renderHeight / 2); y += renderHeight;
                 }
             }
         }
@@ -1103,10 +1047,8 @@
 
     function updateOutputDOM() {
         const container = document.getElementById('documentContainer');
-        
         while(container.children.length < pagesData.length) {
-            const c = document.createElement('canvas'); c.className = 'output-page';
-            c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c);
+            const c = document.createElement('canvas'); c.className = 'output-page'; c.width = PAGE_WIDTH; c.height = PAGE_HEIGHT; container.appendChild(c);
         }
         while(container.children.length > pagesData.length) container.removeChild(container.lastChild);
 
@@ -1114,34 +1056,29 @@
             const ctx = container.children[i].getContext('2d');
             ctx.drawImage(pagesData[i], 0, 0);
 
+            // 選択中もカーソルは表示する
             if (isCursorVisible && cursorPage === i) {
                 ctx.beginPath(); ctx.strokeStyle = "#007aff"; ctx.lineWidth = 2 * DPI;
-                if (textDirection === 'ttb') {
-                    ctx.moveTo(cursorX + 2*DPI, cursorY); ctx.lineTo(cursorX + (textRenderSize * DPI) - 2*DPI, cursorY);
-                } else {
-                    ctx.moveTo(cursorX, cursorY + 2*DPI); ctx.lineTo(cursorX, cursorY + (textRenderSize * DPI) - 2*DPI);
-                }
+                if (textDirection === 'ttb') { ctx.moveTo(cursorX + 2*DPI, cursorY); ctx.lineTo(cursorX + (textRenderSize * DPI) - 2*DPI, cursorY); } 
+                else { ctx.moveTo(cursorX, cursorY + 2*DPI); ctx.lineTo(cursorX, cursorY + (textRenderSize * DPI) - 2*DPI); }
                 ctx.stroke();
             }
         }
     }
 
-    function handleDocumentClick(e) {
+    // ★マウスクリック＆ドラッグによる選択処理
+    function getIndexFromEvent(e) {
         const canvas = e.target.closest('.output-page');
-        if (!canvas || window.cachedCursorPositions.length === 0) return;
-
+        if (!canvas || window.cachedCursorPositions.length === 0) return null;
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
         const clickX = (e.clientX - rect.left) * scaleX; const clickY = (e.clientY - rect.top) * scaleY;
-
         const container = document.getElementById('documentContainer');
         const pageIndex = Array.from(container.children).indexOf(canvas);
-
         const positionsOnPage = window.cachedCursorPositions.map((pos, index) => ({ ...pos, index })).filter(pos => pos.page === pageIndex);
-        if (positionsOnPage.length === 0) return;
+        if (positionsOnPage.length === 0) return null;
 
         const renderHeight = textRenderSize * DPI;
-
         if (textDirection === 'ttb') {
             let closestX = positionsOnPage[0].x; let minXDist = Infinity;
             for (const pos of positionsOnPage) {
@@ -1154,7 +1091,7 @@
                 const dist = Math.abs(clickY - pos.y);
                 if (dist < minYDist) { minYDist = dist; closestIndex = pos.index; }
             }
-            cursorIndex = closestIndex;
+            return closestIndex;
         } else {
             let closestY = positionsOnPage[0].y; let minYDist = Infinity;
             for (const pos of positionsOnPage) {
@@ -1167,9 +1104,39 @@
                 const dist = Math.abs(clickX - pos.x);
                 if (dist < minXDist) { minXDist = dist; closestIndex = pos.index; }
             }
-            cursorIndex = closestIndex;
+            return closestIndex;
         }
-        renderOutputToCache(); 
+    }
+
+    // ドラッグ選択用イベントリスナー
+    let isTextSelecting = false;
+    function setupPointerSelection() {
+        const docContainer = document.getElementById('documentContainer');
+        docContainer.addEventListener('pointerdown', (e) => {
+            const idx = getIndexFromEvent(e);
+            if (idx !== null) {
+                if (e.shiftKey) {
+                    if (selectionAnchor === null) selectionAnchor = cursorIndex;
+                    cursorIndex = idx;
+                } else {
+                    selectionAnchor = idx;
+                    cursorIndex = idx;
+                }
+                isTextSelecting = true; renderOutputToCache();
+            }
+        });
+        window.addEventListener('pointermove', (e) => {
+            if (!isTextSelecting) return;
+            const idx = getIndexFromEvent(e);
+            if (idx !== null && idx !== cursorIndex) { cursorIndex = idx; renderOutputToCache(); }
+        });
+        window.addEventListener('pointerup', () => {
+            if (isTextSelecting) {
+                isTextSelecting = false;
+                if (selectionAnchor === cursorIndex) selectionAnchor = null; // ドラッグしなかった場合は選択解除
+                renderOutputToCache();
+            }
+        });
     }
 
     function startCursorBlink() {
@@ -1187,104 +1154,74 @@
 
     function showSaveModal(mode) {
         if (pagesData.length === 0) return;
-        const container = document.getElementById('downloadLinksContainer');
-        container.innerHTML = '';
-        
+        const container = document.getElementById('downloadLinksContainer'); container.innerHTML = '';
         if (mode === 'combined') {
-            const combinedCanvas = document.createElement('canvas');
-            combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
+            const combinedCanvas = document.createElement('canvas'); combinedCanvas.width = PAGE_WIDTH; combinedCanvas.height = PAGE_HEIGHT * pagesData.length;
             const ctx = combinedCanvas.getContext('2d');
             pagesData.forEach((canvas, i) => { ctx.drawImage(canvas, 0, i * PAGE_HEIGHT); });
-            
-            const img = document.createElement('img');
-            img.src = combinedCanvas.toDataURL("image/png");
-            img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
+            const img = document.createElement('img'); img.src = combinedCanvas.toDataURL("image/png"); img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
             container.appendChild(img);
         } else {
             pagesData.forEach((canvas, index) => {
-                const wrapper = document.createElement('div');
-                wrapper.style.marginBottom = "15px";
-                
-                const title = document.createElement('div');
-                title.textContent = `ページ ${index + 1}`;
-                title.style.fontWeight = "bold"; title.style.marginBottom = "5px"; title.style.fontSize = "14px";
-                
-                const img = document.createElement('img');
-                img.src = canvas.toDataURL("image/png");
-                img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
-                
+                const wrapper = document.createElement('div'); wrapper.style.marginBottom = "15px";
+                const title = document.createElement('div'); title.textContent = `ページ ${index + 1}`; title.style.fontWeight = "bold"; title.style.marginBottom = "5px"; title.style.fontSize = "14px";
+                const img = document.createElement('img'); img.src = canvas.toDataURL("image/png"); img.style.width = "100%"; img.style.border = "1px solid #ccc"; img.style.borderRadius = "4px";
                 wrapper.appendChild(title); wrapper.appendChild(img); container.appendChild(wrapper);
             });
         }
-        
         document.getElementById('downloadModal').style.display = 'flex';
     }
-
     function closeDownloadModal() { document.getElementById('downloadModal').style.display = 'none'; }
 
-    // ★矢印キーでのカーソル移動ロジック
-    function handleArrowNavigation(key) {
+    function handleArrowNavigation(key, shiftKey) {
         if (window.cachedCursorPositions.length === 0) return;
         
-        let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y;
-        if (textDirection === 'ttb') {
-            getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
+        if (shiftKey && selectionAnchor === null) {
+            selectionAnchor = cursorIndex; // 選択開始
+        } else if (!shiftKey && selectionAnchor !== null) {
+            clearSelection(); // 選択解除
         }
+
+        let getLineKey = (pos) => pos.page * PAGE_HEIGHT + pos.y;
+        if (textDirection === 'ttb') getLineKey = (pos) => pos.page * PAGE_WIDTH + (PAGE_WIDTH - pos.x);
         
         const linesMap = new Map();
         cachedCursorPositions.forEach((pos, i) => {
-            const lk = getLineKey(pos);
-            const roundKey = Math.round(lk);
+            const lk = getLineKey(pos); const roundKey = Math.round(lk);
             let foundKey = roundKey;
-            for (let k of linesMap.keys()) {
-                if (Math.abs(k - roundKey) < 5) { foundKey = k; break; }
-            }
+            for (let k of linesMap.keys()) { if (Math.abs(k - roundKey) < 5) { foundKey = k; break; } }
             if (!linesMap.has(foundKey)) linesMap.set(foundKey, []);
             linesMap.get(foundKey).push({ ...pos, index: i });
         });
         const sortedLines = Array.from(linesMap.keys()).sort((a, b) => a - b);
         
-        const curr = cachedCursorPositions[cursorIndex];
-        const currLineKey = getLineKey(curr);
+        const curr = cachedCursorPositions[cursorIndex]; const currLineKey = getLineKey(curr);
         let currentLineIdx = sortedLines.findIndex(k => Math.abs(k - Math.round(currLineKey)) < 5);
         if (currentLineIdx === -1) currentLineIdx = 0; 
         
         function cursorLineMove(targetLineIdx, axis) {
-            if (targetLineIdx < 0) {
-                cursorIndex = 0;
-            } else if (targetLineIdx >= sortedLines.length) {
-                cursorIndex = typedSequence.length;
-            } else {
+            if (targetLineIdx < 0) cursorIndex = 0;
+            else if (targetLineIdx >= sortedLines.length) cursorIndex = typedSequence.length;
+            else {
                 const candidates = linesMap.get(sortedLines[targetLineIdx]);
-                let bestIdx = candidates[0].index;
-                let minDiff = Math.abs(candidates[0][axis] - curr[axis]);
-                for (let pos of candidates) {
-                    let diff = Math.abs(pos[axis] - curr[axis]);
-                    if (diff < minDiff) { minDiff = diff; bestIdx = pos.index; }
-                }
+                let bestIdx = candidates[0].index; let minDiff = Math.abs(candidates[0][axis] - curr[axis]);
+                for (let pos of candidates) { let diff = Math.abs(pos[axis] - curr[axis]); if (diff < minDiff) { minDiff = diff; bestIdx = pos.index; } }
                 cursorIndex = bestIdx;
             }
         }
 
         if (textDirection === 'ltr') {
-            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x');
-            else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
-            else if (key === 'ArrowLeft') cursorIndex = Math.max(0, cursorIndex - 1);
-            else if (key === 'ArrowRight') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
+            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
+            else if (key === 'ArrowLeft') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowRight') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
         } else if (textDirection === 'rtl') {
-            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x');
-            else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
-            else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
-            else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1);
+            if (key === 'ArrowUp') cursorLineMove(currentLineIdx - 1, 'x'); else if (key === 'ArrowDown') cursorLineMove(currentLineIdx + 1, 'x');
+            else if (key === 'ArrowLeft') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1); else if (key === 'ArrowRight') cursorIndex = Math.max(0, cursorIndex - 1);
         } else if (textDirection === 'ttb') {
-            if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y');
-            else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y');
-            else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1);
-            else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
+            if (key === 'ArrowLeft') cursorLineMove(currentLineIdx + 1, 'y'); else if (key === 'ArrowRight') cursorLineMove(currentLineIdx - 1, 'y');
+            else if (key === 'ArrowUp') cursorIndex = Math.max(0, cursorIndex - 1); else if (key === 'ArrowDown') cursorIndex = Math.min(typedSequence.length, cursorIndex + 1);
         }
     }
 
-    // ★入力処理（未確定バッファと最長一致の合字システム）
     function processInput(inputStr) {
         if (inputStr === 'Backspace') { backspace(); return; }
         if (inputStr === '改行' || inputStr === 'Enter') {
@@ -1294,103 +1231,81 @@
             typedSequence.splice(cursorIndex, 0, '空白'); cursorIndex++; saveDocumentData(); renderOutputToCache(); return;
         }
 
-        // まず新しい音素(文字列)としてカーソル位置に挿入
         typedSequence.splice(cursorIndex, 0, inputStr);
         cursorIndex++;
 
-        let bestMatchId = null;
-        let bestMatchLength = 0;
-        const MAX_LOOKBACK = 15; 
-        const limit = Math.min(cursorIndex, MAX_LOOKBACK);
-
-        // カーソル手前から遡って「登録されている最長の合字」を探す
+        let bestMatchId = null; let bestMatchLength = 0; const MAX_LOOKBACK = 15; const limit = Math.min(cursorIndex, MAX_LOOKBACK);
         for (let i = 1; i <= limit; i++) {
-            let valid = true;
-            let combinedPhoneme = "";
+            let valid = true; let combinedPhoneme = "";
             for (let j = cursorIndex - i; j < cursorIndex; j++) {
                 const item = typedSequence[j];
                 if (item === '改行' || item === '空白') { valid = false; break; }
-                
-                if (charDictionary[item]) {
-                    combinedPhoneme += charDictionary[item].phoneme;
-                } else {
-                    combinedPhoneme += item; 
-                }
+                if (charDictionary[item]) combinedPhoneme += charDictionary[item].phoneme; else combinedPhoneme += item; 
             }
             if (!valid) break; 
-
-            for (const id in charDictionary) {
-                if (charDictionary[id].phoneme === combinedPhoneme) {
-                    bestMatchId = id;
-                    bestMatchLength = i;
-                }
-            }
+            for (const id in charDictionary) { if (charDictionary[id].phoneme === combinedPhoneme) { bestMatchId = id; bestMatchLength = i; } }
         }
 
-        // 最長一致する文字が見つかったら、過去の履歴を消して合体させる
         if (bestMatchId) {
             typedSequence.splice(cursorIndex - bestMatchLength, bestMatchLength, bestMatchId);
             cursorIndex -= (bestMatchLength - 1);
         }
-        
-        saveDocumentData();
-        renderOutputToCache();
+        saveDocumentData(); renderOutputToCache();
     }
 
-    function backspace() { 
-        if(cursorIndex > 0) { typedSequence.splice(cursorIndex - 1, 1); cursorIndex--; saveDocumentData(); renderOutputToCache(); } 
-    }
-    
-    function clearOutput() { typedSequence = []; cursorIndex = 0; saveDocumentData(); renderOutputToCache(); }
+    function clearOutput() { typedSequence = []; cursorIndex = 0; selectionAnchor = null; saveDocumentData(); renderOutputToCache(); }
 
     function triggerKeyAnimation(keyStr) {
         let targets = [];
-        if (keyStr === 'Backspace' || keyStr === '⌫') {
-            document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); });
-        } else if (keyStr === 'Enter' || keyStr === '改行') {
-            targets = document.querySelectorAll('.key-return');
-        } else if (keyStr === ' ' || keyStr === '空白') {
-            targets = document.querySelectorAll('.key-space');
-        } else {
-            document.querySelectorAll('.key-label').forEach(label => {
-                if (label.textContent === keyStr) targets.push(label.parentElement);
-            });
-            if (targets.length === 0) {
-                document.querySelectorAll('.key-empty .key-label').forEach(label => {
-                    if (label.textContent === keyStr) targets.push(label.parentElement);
-                });
-            }
+        if (keyStr === 'Backspace' || keyStr === '⌫') { document.querySelectorAll('.key-system').forEach(btn => { if(btn.textContent === '⌫') targets.push(btn); }); } 
+        else if (keyStr === 'Enter' || keyStr === '改行') { targets = document.querySelectorAll('.key-return'); } 
+        else if (keyStr === ' ' || keyStr === '空白') { targets = document.querySelectorAll('.key-space'); } 
+        else {
+            document.querySelectorAll('.key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); });
+            if (targets.length === 0) { document.querySelectorAll('.key-empty .key-label').forEach(label => { if (label.textContent === keyStr) targets.push(label.parentElement); }); }
         }
-        
-        targets.forEach(btn => {
-            btn.classList.add('active-anim');
-            setTimeout(() => { btn.classList.remove('active-anim'); }, 100);
-        });
+        targets.forEach(btn => { btn.classList.add('active-anim'); setTimeout(() => { btn.classList.remove('active-anim'); }, 100); });
     }
 
     // ★物理キーボードイベント
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-        if (e.ctrlKey || e.metaKey || e.altKey) return;
         
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-            e.preventDefault();
-            handleArrowNavigation(e.key);
-            renderOutputToCache();
+        // ★コピー・カット・ペーストなどのコマンド処理
+        if (e.ctrlKey || e.metaKey) {
+            const key = e.key.toLowerCase();
+            if (key === 'a') { e.preventDefault(); selectAllText(); } 
+            else if (key === 'c') { e.preventDefault(); copyText(); } 
+            else if (key === 'x') { e.preventDefault(); cutText(); } 
+            else if (key === 'v') { e.preventDefault(); pasteText(); }
             return;
         }
+        if (e.altKey) return;
         
-        if (e.key === 'Backspace' || e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            processInput(e.key);
-            triggerKeyAnimation(e.key);
-            return;
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault(); handleArrowNavigation(e.key, e.shiftKey); renderOutputToCache(); return;
+        }
+        
+        if (e.key === 'Backspace') { 
+            e.preventDefault(); 
+            if (hasSelection()) deleteSelection(); else backspace(); 
+            triggerKeyAnimation('⌫'); return; 
+        }
+        if (e.key === 'Enter') { 
+            e.preventDefault(); 
+            if (hasSelection()) deleteSelection();
+            processInput('改行'); triggerKeyAnimation('改行'); return; 
+        }
+        if (e.key === ' ') { 
+            e.preventDefault(); 
+            if (hasSelection()) deleteSelection();
+            processInput('空白'); triggerKeyAnimation('空白'); return; 
         }
         
         if (e.key.length === 1) {
             e.preventDefault();
-            processInput(e.key);
-            triggerKeyAnimation(e.key);
+            if (hasSelection()) deleteSelection();
+            processInput(e.key); triggerKeyAnimation(e.key);
         }
     });
 
